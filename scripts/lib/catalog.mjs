@@ -298,38 +298,44 @@ export function validateCatalog(root) {
     else seenIds.set(id, path);
   }
 
-  // Every immediate subdirectory of skills/ must contain a `SKILL.md`. readCatalogFiles
-  // skips those that don't (a folder without SKILL.md is not an indexable item), so
-  // without this audit a mis-cased `skill.md` or a forgotten SKILL.md would vanish from
-  // the catalog silently — passing validate:strict AND check:index.
-  let skillDirs = [];
-  try {
-    skillDirs = readdirSync(join(root, 'skills'), { withFileTypes: true });
-  } catch {
-    /* no skills/ folder */
-  }
-  for (const dirent of skillDirs) {
-    if (dirent.isDirectory()) {
-      let names = [];
-      try {
-        names = readdirSync(join(root, 'skills', dirent.name));
-      } catch {
-        /* unreadable — reported as missing below */
+  // Layout audit. readCatalogFiles silently skips anything that doesn't fit a
+  // folder's expected shape (so `build` stays lenient), which means a misplaced
+  // submission — an item in a subdirectory, a mis-cased `.MD` extension, or a skill
+  // folder without SKILL.md — would vanish from index.json with no error, passing
+  // validate:strict AND check:index. Surface those as actionable layout errors.
+  for (const [folder, type] of CATEGORIES) {
+    let dirents;
+    try {
+      dirents = readdirSync(join(root, folder), { withFileTypes: true });
+    } catch {
+      continue; // folder may not exist
+    }
+    for (const dirent of dirents) {
+      const rel = `${folder}/${dirent.name}`;
+      const looksLikeMarkdown = /\.md$/i.test(dirent.name);
+      if (type === 'skill') {
+        if (dirent.isDirectory()) {
+          let names = [];
+          try {
+            names = readdirSync(join(root, folder, dirent.name));
+          } catch {
+            /* unreadable — reported as missing below */
+          }
+          if (!names.includes('SKILL.md')) {
+            const misCased = names.find((n) => n.toLowerCase() === 'skill.md');
+            errors.push(
+              `${rel}/: missing SKILL.md` +
+                (misCased ? ` (found "${misCased}" — the file must be named exactly "SKILL.md")` : ''),
+            );
+          }
+        } else if (dirent.name !== 'README.md' && looksLikeMarkdown) {
+          errors.push(`${rel}: a skill must live in a folder as ${folder}/<name>/SKILL.md, not as a file directly under ${folder}/`);
+        }
+      } else if (dirent.isDirectory()) {
+        errors.push(`${rel}/: unexpected subdirectory — ${type} items are single files (${folder}/<name>.md)`);
+      } else if (dirent.name !== 'README.md' && looksLikeMarkdown && !dirent.name.endsWith('.md')) {
+        errors.push(`${rel}: markdown items must use a lowercase ".md" extension`);
       }
-      if (!names.includes('SKILL.md')) {
-        const misCased = names.find((n) => n.toLowerCase() === 'skill.md');
-        errors.push(
-          `skills/${dirent.name}/: missing SKILL.md` +
-            (misCased ? ` (found "${misCased}" — the file must be named exactly "SKILL.md")` : ''),
-        );
-      }
-    } else if (dirent.isFile() && dirent.name !== 'README.md' && /\.md$/i.test(dirent.name)) {
-      // A skill lives in its own folder (skills/<name>/SKILL.md). A stray markdown
-      // file directly under skills/ is a misplaced skill that nothing would index —
-      // it would vanish silently while CI stayed green.
-      errors.push(
-        `skills/${dirent.name}: a skill must live in a folder as skills/<name>/SKILL.md, not as a file directly under skills/`,
-      );
     }
   }
 

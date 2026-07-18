@@ -276,6 +276,20 @@ test('validateCatalog rejects a markdown skill file placed directly under skills
   assert.ok(has(errors, /skills\/my-skill\.md: a skill must live in a folder/));
 });
 
+test('validateCatalog flags an item placed in a subdirectory of a flat-file folder', () => {
+  const { errors } = validateFixture({ 'loops/nested/ticket-to-pr-ready.md': validLoop });
+  assert.ok(has(errors, /loops\/nested\/: unexpected subdirectory/));
+});
+
+test('validateCatalog flags a mis-cased .MD extension', () => {
+  const agent = [
+    '---', 'type: specorator-agent', 'name: "Planner"', 'description: "d"',
+    'roles: ["worker"]', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'Prompt.',
+  ].join('\n');
+  const { errors } = validateFixture({ 'agents/planner.MD': agent });
+  assert.ok(has(errors, /agents\/planner\.MD: markdown items must use a lowercase/));
+});
+
 test('validateCatalog warns (does not error) on quick-action favorite state', () => {
   const favQuickAction = [
     '---',
