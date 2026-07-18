@@ -11,6 +11,7 @@ import {
   parseFrontmatter,
   extractSection,
   buildItem,
+  parseVersion,
   collectItems,
   buildManifest,
   validateCatalog,
@@ -88,6 +89,28 @@ test('buildItem projects a manifest item and coerces version to a number', () =>
   assert.equal(item.version, 2);
   assert.equal(item.icon, 'i');
   assert.equal('roles' in item, false); // absent optionals are omitted
+});
+
+test('parseVersion accepts positive integers and rejects everything else', () => {
+  assert.equal(parseVersion('1'), 1);
+  assert.equal(parseVersion('12'), 12);
+  assert.equal(parseVersion(undefined), undefined);
+  assert.equal(parseVersion(''), undefined);
+  assert.equal(parseVersion('1.0.0'), undefined); // semver string
+  assert.equal(parseVersion('0'), undefined);
+  assert.equal(parseVersion('abc'), undefined);
+});
+
+test('buildItem omits an invalid version instead of publishing null', () => {
+  const item = buildItem({
+    folder: 'loops',
+    type: 'loop',
+    slug: 'x',
+    path: 'loops/x.md',
+    frontmatter: { name: 'X', description: 'd', tags: ['a'], version: '1.0.0' },
+    body: '',
+  });
+  assert.equal('version' in item, false); // not null
 });
 
 // --- validateCatalog over fixture catalogs -----------------------------------
@@ -170,6 +193,12 @@ test('validateCatalog flags a loop missing a required section', () => {
   const noVerify = validLoop.replace('## Verify', '## Notes');
   const { errors } = validateFixture({ 'loops/ticket-to-pr-ready.md': noVerify });
   assert.ok(has(errors, /missing a non-empty "## Verify" section/));
+});
+
+test('validateCatalog flags a non-integer version', () => {
+  const badVersion = validLoop.replace('license: MIT', 'license: MIT\nversion: 1.0.0');
+  const { errors } = validateFixture({ 'loops/ticket-to-pr-ready.md': badVersion });
+  assert.ok(has(errors, /`version` must be a positive integer/));
 });
 
 test('validateCatalog flags an invalid template priority', () => {

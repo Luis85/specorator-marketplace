@@ -122,6 +122,17 @@ export function toList(value) {
 }
 
 /**
+ * A catalog `version` is a positive integer when present. Returns the integer,
+ * or undefined if absent/blank/invalid — so a bad value (e.g. semver `1.0.0`) is
+ * omitted from the manifest rather than published as `null`.
+ */
+export function parseVersion(raw) {
+  if (raw === undefined || raw === '') return undefined;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 ? n : undefined;
+}
+
+/**
  * Walks the category folders and returns one raw entry per item:
  * `{ folder, type, typeMarker, file, slug, path, frontmatter, body }`.
  * Handles the `skills/<name>/SKILL.md` subfolder layout. Deterministic order
@@ -185,7 +196,8 @@ export function buildItem(entry) {
   if (fm.author) item.author = fm.author;
   if (fm.source) item.source = fm.source;
   if (fm.license) item.license = fm.license;
-  if (fm.version !== undefined && fm.version !== '') item.version = Number(fm.version);
+  const version = parseVersion(fm.version);
+  if (version !== undefined) item.version = version;
   return item;
 }
 
@@ -224,6 +236,9 @@ export function validateCatalog(root) {
     if (!nonEmptyString(fm.author)) err('missing required `author`');
     if (!nonEmptyString(fm.license)) err('missing required `license`');
     if (!Array.isArray(fm.tags) || fm.tags.length === 0) err('`tags` must be a non-empty list');
+    if (fm.version !== undefined && fm.version !== '' && parseVersion(fm.version) === undefined) {
+      err(`\`version\` must be a positive integer (got ${JSON.stringify(fm.version)})`);
+    }
 
     if (type !== 'skill' && fm.type !== typeMarker) {
       err(`\`type\` must be "${typeMarker}" (got ${JSON.stringify(fm.type ?? null)})`);
