@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch cancels the older in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate catalog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No dependencies to install — the scripts use Node built-ins only.
+      - name: Unit tests
+        run: npm test
+
+      - name: Validate catalog (strict)
+        run: npm run validate:strict
+
+      - name: Verify index.json is in sync
+        run: npm run check:index

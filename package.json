@@ -1,0 +1,21 @@
+{
+  "name": "specorator-marketplace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Curated catalog of installable Quick Actions, Agents, Loops, Work-Order Templates, and Skills for the Specorator Obsidian plugin.",
+  "license": "MIT",
+  "author": "Luis Mendez (https://github.com/Luis85)",
+  "homepage": "https://github.com/Luis85/specorator-marketplace",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:index": "node scripts/build-index.mjs",
+    "check:index": "node scripts/build-index.mjs --check",
+    "validate": "node scripts/validate-catalog.mjs",
+    "validate:strict": "node scripts/validate-catalog.mjs --strict",
+    "test": "node --test",
+    "ci": "npm test && npm run validate:strict && npm run check:index"
+  }
+}

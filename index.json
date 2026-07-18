@@ -1,0 +1,452 @@
+{
+  "schemaVersion": 1,
+  "catalog": "specorator-marketplace",
+  "count": 27,
+  "items": [
+    {
+      "id": "quick-actions/build-or-update-a-use-case-map",
+      "type": "quick-action",
+      "name": "Build or update a use-case map",
+      "description": "Discover a project's user-facing views and use-cases and render them as an Obsidian canvas — each view and use-case its own note. Creates or updates; portable across any vault or project.",
+      "path": "quick-actions/build-or-update-a-use-case-map.md",
+      "tags": [
+        "use-case-map",
+        "canvas",
+        "portable"
+      ],
+      "icon": "workflow",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "quick-actions/implement-plan-with-subagents",
+      "type": "quick-action",
+      "name": "Implement plan with subagents",
+      "description": "Execute a superpowers implementation plan task-by-task using dispatched subagents",
+      "path": "quick-actions/implement-plan-with-subagents.md",
+      "tags": [
+        "superpowers",
+        "implementation",
+        "subagents"
+      ],
+      "icon": "list-checks",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "quick-actions/quick-action-to-skill",
+      "type": "quick-action",
+      "name": "Quick action to skill",
+      "description": "Turn a quick-action note into a reusable Claude skill (SKILL.md), asking whether to save it to the project or to your user settings. Portable across vaults.",
+      "path": "quick-actions/quick-action-to-skill.md",
+      "tags": [
+        "skill",
+        "quick-action",
+        "portable"
+      ],
+      "icon": "wand-2",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/code-reviewer",
+      "type": "agent",
+      "name": "Code Reviewer",
+      "description": "Reviews a change for correctness, edge cases, and clarity.",
+      "path": "agents/code-reviewer.md",
+      "tags": [
+        "review",
+        "verifier"
+      ],
+      "icon": "shield-check",
+      "roles": [
+        "verifier"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/debugger",
+      "type": "agent",
+      "name": "Debugger",
+      "description": "Reproduces, root-causes, and fixes a defect with a regression test.",
+      "path": "agents/debugger.md",
+      "tags": [
+        "engineering",
+        "bugfix"
+      ],
+      "icon": "bug",
+      "roles": [
+        "worker"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/documentation-writer",
+      "type": "agent",
+      "name": "Documentation Writer",
+      "description": "Adds or updates documentation to match the code.",
+      "path": "agents/documentation-writer.md",
+      "tags": [
+        "documentation"
+      ],
+      "icon": "book-open",
+      "roles": [
+        "worker"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/feature-builder",
+      "type": "agent",
+      "name": "Feature Builder",
+      "description": "Implements a new user-facing capability end to end.",
+      "path": "agents/feature-builder.md",
+      "tags": [
+        "engineering",
+        "feature"
+      ],
+      "icon": "sparkles",
+      "roles": [
+        "worker"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/planner",
+      "type": "agent",
+      "name": "Planner",
+      "description": "Produces a step-by-step implementation plan — no code.",
+      "path": "agents/planner.md",
+      "tags": [
+        "planning"
+      ],
+      "icon": "map",
+      "roles": [
+        "worker"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/refactorer",
+      "type": "agent",
+      "name": "Refactorer",
+      "description": "Improves structure without changing observable behavior, guided by clean-code practice.",
+      "path": "agents/refactorer.md",
+      "tags": [
+        "engineering",
+        "refactor"
+      ],
+      "icon": "wrench",
+      "roles": [
+        "worker"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/researcher",
+      "type": "agent",
+      "name": "Researcher",
+      "description": "Time-boxed, read-only investigation that ends in a written finding.",
+      "path": "agents/researcher.md",
+      "tags": [
+        "research"
+      ],
+      "icon": "telescope",
+      "roles": [
+        "worker"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/test-author",
+      "type": "agent",
+      "name": "Test Author",
+      "description": "Backfills meaningful tests for under-covered code.",
+      "path": "agents/test-author.md",
+      "tags": [
+        "testing"
+      ],
+      "icon": "flask-conical",
+      "roles": [
+        "worker"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/100-test-coverage",
+      "type": "loop",
+      "name": "100% test coverage",
+      "description": "Drive a coverage gap to 100% with tests that assert real behavior.",
+      "path": "loops/100-test-coverage.md",
+      "tags": [
+        "testing",
+        "coverage",
+        "quality"
+      ],
+      "icon": "shield-check",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/architecture-satisfaction",
+      "type": "loop",
+      "name": "Architecture satisfaction",
+      "description": "Refactor toward a stated architecture, verifying and committing each checkpoint.",
+      "path": "loops/architecture-satisfaction.md",
+      "tags": [
+        "engineering",
+        "refactor",
+        "architecture"
+      ],
+      "icon": "blocks",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/devil-s-advocate",
+      "type": "loop",
+      "name": "Devil's advocate",
+      "description": "Adversarially review a consequential design before committing to it.",
+      "path": "loops/devil-s-advocate.md",
+      "tags": [
+        "review",
+        "design"
+      ],
+      "icon": "swords",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/docs-sweep",
+      "type": "loop",
+      "name": "Docs sweep",
+      "description": "Find documentation drift against the code and fix it behind a reviewable PR.",
+      "path": "loops/docs-sweep.md",
+      "tags": [
+        "documentation",
+        "maintenance"
+      ],
+      "icon": "book-open",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/fresh-clone",
+      "type": "loop",
+      "name": "Fresh clone",
+      "description": "Prove the README onboarding works in a clean environment from scratch.",
+      "path": "loops/fresh-clone.md",
+      "tags": [
+        "onboarding",
+        "documentation"
+      ],
+      "icon": "package-check",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/goal-forge",
+      "type": "loop",
+      "name": "Goal Forge",
+      "description": "Turn a vague idea into a spec and an execution plan before a long autonomous run.",
+      "path": "loops/goal-forge.md",
+      "tags": [
+        "planning",
+        "spec"
+      ],
+      "icon": "target",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/promise-to-proof",
+      "type": "loop",
+      "name": "Promise to proof",
+      "description": "Check that what the product claims matches what it actually does.",
+      "path": "loops/promise-to-proof.md",
+      "tags": [
+        "product",
+        "verification"
+      ],
+      "icon": "badge-check",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/propagation-compliance",
+      "type": "loop",
+      "name": "Propagation compliance",
+      "description": "Keep a changed value consistent across every copy in the project.",
+      "path": "loops/propagation-compliance.md",
+      "tags": [
+        "maintenance",
+        "consistency"
+      ],
+      "icon": "copy-check",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/test-suite-speed",
+      "type": "loop",
+      "name": "Test-suite speed",
+      "description": "Make the test suite faster without weakening coverage or behavior.",
+      "path": "loops/test-suite-speed.md",
+      "tags": [
+        "testing",
+        "performance"
+      ],
+      "icon": "gauge",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "loops/ticket-to-pr-ready",
+      "type": "loop",
+      "name": "Ticket to PR-ready",
+      "description": "Turn a loose ticket into a proven root cause and a minimal, review-ready patch.",
+      "path": "loops/ticket-to-pr-ready.md",
+      "tags": [
+        "engineering",
+        "bugfix",
+        "review"
+      ],
+      "icon": "git-pull-request",
+      "author": "Forward-Future loop library, adapted by Specorator",
+      "source": "https://github.com/Forward-Future/loop-library",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "templates/bug-fix",
+      "type": "template",
+      "name": "Bug fix",
+      "description": "Reproduce, diagnose, and fix a defect.",
+      "path": "templates/bug-fix.md",
+      "tags": [
+        "engineering",
+        "bugfix"
+      ],
+      "icon": "bug",
+      "priority": "1 - high",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "templates/documentation",
+      "type": "template",
+      "name": "Documentation",
+      "description": "Add or update documentation.",
+      "path": "templates/documentation.md",
+      "tags": [
+        "documentation"
+      ],
+      "icon": "book-open",
+      "priority": "3 - low",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "templates/feature",
+      "type": "template",
+      "name": "Feature",
+      "description": "Ship a new user-facing capability.",
+      "path": "templates/feature.md",
+      "tags": [
+        "engineering",
+        "feature"
+      ],
+      "icon": "sparkles",
+      "priority": "2 - normal",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "templates/refactor",
+      "type": "template",
+      "name": "Refactor",
+      "description": "Improve structure without changing behavior.",
+      "path": "templates/refactor.md",
+      "tags": [
+        "engineering",
+        "refactor"
+      ],
+      "icon": "wrench",
+      "priority": "2 - normal",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "templates/research-spike",
+      "type": "template",
+      "name": "Research spike",
+      "description": "Time-boxed investigation, no production code.",
+      "path": "templates/research-spike.md",
+      "tags": [
+        "research",
+        "planning"
+      ],
+      "icon": "search",
+      "priority": "2 - normal",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "templates/test-backfill",
+      "type": "template",
+      "name": "Test backfill",
+      "description": "Add tests for under-covered code without changing behavior.",
+      "path": "templates/test-backfill.md",
+      "tags": [
+        "testing"
+      ],
+      "icon": "flask-conical",
+      "priority": "2 - normal",
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    }
+  ]
+}
