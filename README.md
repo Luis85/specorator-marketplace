@@ -61,12 +61,17 @@ Each item carries its own `author`, `source`, and `license` in its frontmatter a
 ## Contributing
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the per-type file format, the agent→roster field
-mapping, the review bar, and the one required step after adding or editing an item:
+mapping, and the review bar. After adding or editing an item, regenerate the manifest and run the
+same checks CI enforces (no dependencies to install — Node ≥ 20 built-ins only):
 
 ```bash
-node scripts/build-index.mjs          # regenerate index.json
-node scripts/build-index.mjs --check  # CI: fail if index.json is stale
+npm run build:index      # regenerate index.json from the item files (commit it)
+npm run validate:strict  # per-type contract checks (errors + warnings)
+npm test                 # unit tests for the parser/validator
 ```
+
+Every push and pull request runs these in GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+the unit tests, `validate:strict`, and an `index.json` freshness check (`npm run check:index`).
 
 ## License
 

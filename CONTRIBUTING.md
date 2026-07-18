@@ -156,12 +156,23 @@ frontmatter `name`. The `description` is the dispatch trigger (third person, lea
 
 ## Before you open a PR
 
-Regenerate and validate the manifest:
+Run the same checks CI enforces (no dependencies — Node ≥ 20 built-ins only):
 
 ```bash
-node scripts/build-index.mjs          # rewrites index.json from the item files
-node scripts/build-index.mjs --check  # must exit 0 — CI runs this
+npm run build:index      # regenerate index.json from the item files
+npm run validate:strict  # per-type contract checks (see rules below)
+npm test                 # unit tests for the parser/validator
 ```
 
-Then confirm: YAML frontmatter parses, `license`/`author` are present, and (for adapted content)
-`source` credits the origin. Commit the regenerated `index.json` alongside your item.
+Commit the regenerated `index.json` alongside your item, then open the PR. GitHub Actions
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) re-runs the unit tests,
+`validate:strict`, and `npm run check:index` (fails if the committed `index.json` is stale).
+
+`npm run validate` reports two levels: **errors** always fail; **warnings** fail only under
+`--strict` (which CI uses). Warnings cover soft conventions — a quick action carrying personal
+`favorite` state, a loop with no `## Use when`, an agent missing `icon`/`color`/`initials`, or a
+`source` that isn't an `https://` URL. Errors cover the hard contract: parseable frontmatter,
+required `name`/`description`/`author`/`license`/`tags`, the folder-matching `type` marker,
+`schema_version: 1` (loops + templates), the **filename == `slugify(name)`** round-trip, the loop's
+`Approach`/`Steps`/`Verify` sections, a valid template `priority`, and agent `roles` ⊆
+`{worker, verifier}`.
