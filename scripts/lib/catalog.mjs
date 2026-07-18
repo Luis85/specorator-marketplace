@@ -312,7 +312,7 @@ export function validateCatalog(root) {
     }
     for (const dirent of dirents) {
       const rel = `${folder}/${dirent.name}`;
-      const looksLikeMarkdown = /\.md$/i.test(dirent.name);
+      if (dirent.name.startsWith('.')) continue; // housekeeping dotfiles (.gitkeep, .DS_Store, …)
       if (type === 'skill') {
         if (dirent.isDirectory()) {
           let names = [];
@@ -328,13 +328,15 @@ export function validateCatalog(root) {
                 (misCased ? ` (found "${misCased}" — the file must be named exactly "SKILL.md")` : ''),
             );
           }
-        } else if (dirent.name !== 'README.md' && looksLikeMarkdown) {
+        } else if (dirent.name !== 'README.md') {
           errors.push(`${rel}: a skill must live in a folder as ${folder}/<name>/SKILL.md, not as a file directly under ${folder}/`);
         }
       } else if (dirent.isDirectory()) {
         errors.push(`${rel}/: unexpected subdirectory — ${type} items are single files (${folder}/<name>.md)`);
-      } else if (dirent.name !== 'README.md' && looksLikeMarkdown && !dirent.name.endsWith('.md')) {
-        errors.push(`${rel}: markdown items must use a lowercase ".md" extension`);
+      } else if (!dirent.name.endsWith('.md')) {
+        // Anything that isn't a lowercase `.md` (`.MD`, `.markdown`, `.txt`, no
+        // extension, …) is not read by readCatalogFiles and would vanish silently.
+        errors.push(`${rel}: unexpected file — catalog items must be lowercase ".md" files (${folder}/<name>.md)`);
       }
     }
   }

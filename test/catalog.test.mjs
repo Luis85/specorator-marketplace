@@ -281,13 +281,15 @@ test('validateCatalog flags an item placed in a subdirectory of a flat-file fold
   assert.ok(has(errors, /loops\/nested\/: unexpected subdirectory/));
 });
 
-test('validateCatalog flags a mis-cased .MD extension', () => {
+test('validateCatalog flags non-.md extensions (.MD, .markdown) that would be ignored', () => {
   const agent = [
     '---', 'type: specorator-agent', 'name: "Planner"', 'description: "d"',
     'roles: ["worker"]', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'Prompt.',
   ].join('\n');
-  const { errors } = validateFixture({ 'agents/planner.MD': agent });
-  assert.ok(has(errors, /agents\/planner\.MD: markdown items must use a lowercase/));
+  const misCased = validateFixture({ 'agents/planner.MD': agent });
+  assert.ok(has(misCased.errors, /agents\/planner\.MD: unexpected file/));
+  const wrongExt = validateFixture({ 'loops/foo.markdown': validLoop });
+  assert.ok(has(wrongExt.errors, /loops\/foo\.markdown: unexpected file/));
 });
 
 test('validateCatalog warns (does not error) on quick-action favorite state', () => {
