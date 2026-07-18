@@ -38,12 +38,12 @@ function parseFrontmatter(text) {
     const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
     if (!m) continue;
     const [, key, rawValue] = m;
-    if (rawValue === '') {
-      // Block sequence: subsequent `  - item` lines.
+    if (stripInlineComment(rawValue).trim() === '') {
+      // Bare `key:` (optionally with a trailing comment) — a block sequence follows.
       const seq = [];
       while (i + 1 < lines.length && /^\s*-\s+/.test(lines[i + 1])) {
         i += 1;
-        seq.push(unquote(lines[i].replace(/^\s*-\s+/, '').trim()));
+        seq.push(unquote(stripInlineComment(lines[i].replace(/^\s*-\s+/, '')).trim()));
       }
       fm[key] = seq.length ? seq : '';
       continue;
@@ -53,8 +53,28 @@ function parseFrontmatter(text) {
   return fm;
 }
 
+/**
+ * Removes a trailing YAML inline comment (a `#` at line start or preceded by
+ * whitespace), skipping any `#` inside single/double quotes. Matches how a real
+ * YAML parser treats comments, so the documented `key: value  # note` style
+ * indexes correctly instead of leaking the comment into the value.
+ */
+function stripInlineComment(value) {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < value.length; i += 1) {
+    const c = value[i];
+    if (c === '"' && !inSingle) inDouble = !inDouble;
+    else if (c === "'" && !inDouble) inSingle = !inSingle;
+    else if (c === '#' && !inSingle && !inDouble && (i === 0 || /\s/.test(value[i - 1]))) {
+      return value.slice(0, i);
+    }
+  }
+  return value;
+}
+
 function parseScalarOrArray(value) {
-  const v = value.trim();
+  const v = stripInlineComment(value).trim();
   if (v.startsWith('[') && v.endsWith(']')) {
     const inner = v.slice(1, -1).trim();
     return inner ? inner.split(',').map((s) => unquote(s.trim())) : [];
