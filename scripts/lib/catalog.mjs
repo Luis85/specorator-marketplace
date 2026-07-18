@@ -233,11 +233,20 @@ export function validateCatalog(root) {
     }
 
     if (name) {
-      const expected = slugify(name);
-      if (entry.slug !== expected) {
-        const label = type === 'skill' ? `skill folder "${entry.slug}"` : `filename "${entry.slug}.md"`;
-        const want = type === 'skill' ? `"${expected}"` : `"${expected}.md"`;
-        err(`${label} must match slugify(name) ${want}`);
+      if (type === 'skill') {
+        // A skill's frontmatter `name` is its id: it must equal the folder name
+        // *exactly* and be lowercase-hyphen (the SKILL.md contract), not a
+        // slugified display name — otherwise an installed skill violates the contract.
+        if (name !== entry.slug) {
+          err(`skill \`name\` "${name}" must equal the folder name "${entry.slug}" exactly`);
+        } else if (slugify(name) !== name) {
+          err(`skill \`name\` "${name}" must be lowercase-hyphen (it is both the folder name and the id)`);
+        }
+      } else {
+        const expected = slugify(name);
+        if (entry.slug !== expected) {
+          err(`filename "${entry.slug}.md" must match slugify(name) "${expected}.md"`);
+        }
       }
     }
 
@@ -285,18 +294,26 @@ export function validateCatalog(root) {
     /* no skills/ folder */
   }
   for (const dirent of skillDirs) {
-    if (!dirent.isDirectory()) continue;
-    let names = [];
-    try {
-      names = readdirSync(join(root, 'skills', dirent.name));
-    } catch {
-      /* unreadable — reported as missing below */
-    }
-    if (!names.includes('SKILL.md')) {
-      const misCased = names.find((n) => n.toLowerCase() === 'skill.md');
+    if (dirent.isDirectory()) {
+      let names = [];
+      try {
+        names = readdirSync(join(root, 'skills', dirent.name));
+      } catch {
+        /* unreadable — reported as missing below */
+      }
+      if (!names.includes('SKILL.md')) {
+        const misCased = names.find((n) => n.toLowerCase() === 'skill.md');
+        errors.push(
+          `skills/${dirent.name}/: missing SKILL.md` +
+            (misCased ? ` (found "${misCased}" — the file must be named exactly "SKILL.md")` : ''),
+        );
+      }
+    } else if (dirent.isFile() && dirent.name !== 'README.md' && /\.md$/i.test(dirent.name)) {
+      // A skill lives in its own folder (skills/<name>/SKILL.md). A stray markdown
+      // file directly under skills/ is a misplaced skill that nothing would index —
+      // it would vanish silently while CI stayed green.
       errors.push(
-        `skills/${dirent.name}/: missing SKILL.md` +
-          (misCased ? ` (found "${misCased}" — the file must be named exactly "SKILL.md")` : ''),
+        `skills/${dirent.name}: a skill must live in a folder as skills/<name>/SKILL.md, not as a file directly under skills/`,
       );
     }
   }

@@ -233,6 +233,20 @@ test('validateCatalog errors on a skill folder with a mis-cased/missing SKILL.md
   assert.ok(has(errors, /skills\/broken\/: missing SKILL\.md/));
 });
 
+test('validateCatalog requires a skill name to equal its folder exactly (not slugified)', () => {
+  const displayNameSkill = [
+    '---', 'name: "My Skill"', 'description: "d"', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'x',
+  ].join('\n');
+  const { errors } = validateFixture({ 'skills/my-skill/SKILL.md': displayNameSkill });
+  assert.ok(has(errors, /must equal the folder name "my-skill" exactly/));
+});
+
+test('validateCatalog rejects a markdown skill file placed directly under skills/', () => {
+  const body = ['---', 'name: my-skill', 'description: d', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'x'].join('\n');
+  const { errors } = validateFixture({ 'skills/my-skill.md': body });
+  assert.ok(has(errors, /skills\/my-skill\.md: a skill must live in a folder/));
+});
+
 test('validateCatalog warns (does not error) on quick-action favorite state', () => {
   const favQuickAction = [
     '---',
