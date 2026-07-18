@@ -210,6 +210,29 @@ test('validateCatalog flags an invalid agent role', () => {
   assert.ok(has(errors, /invalid role "wizard"/));
 });
 
+test('validateCatalog accepts a well-formed skill folder', () => {
+  const validSkill = [
+    '---',
+    'name: my-skill',
+    'description: "Use when doing the thing."',
+    'tags: ["x"]',
+    'author: A',
+    'license: MIT',
+    '---',
+    '',
+    'Do the thing.',
+  ].join('\n');
+  const { errors, warnings } = validateFixture({ 'skills/my-skill/SKILL.md': validSkill });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, []);
+});
+
+test('validateCatalog errors on a skill folder with a mis-cased/missing SKILL.md', () => {
+  const body = ['---', 'name: broken', 'description: d', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'x'].join('\n');
+  const { errors } = validateFixture({ 'skills/broken/skill.md': body }); // lowercase
+  assert.ok(has(errors, /skills\/broken\/: missing SKILL\.md/));
+});
+
 test('validateCatalog warns (does not error) on quick-action favorite state', () => {
   const favQuickAction = [
     '---',

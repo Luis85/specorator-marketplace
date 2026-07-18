@@ -274,5 +274,32 @@ export function validateCatalog(root) {
     else seenIds.set(id, path);
   }
 
+  // Every immediate subdirectory of skills/ must contain a `SKILL.md`. readCatalogFiles
+  // skips those that don't (a folder without SKILL.md is not an indexable item), so
+  // without this audit a mis-cased `skill.md` or a forgotten SKILL.md would vanish from
+  // the catalog silently — passing validate:strict AND check:index.
+  let skillDirs = [];
+  try {
+    skillDirs = readdirSync(join(root, 'skills'), { withFileTypes: true });
+  } catch {
+    /* no skills/ folder */
+  }
+  for (const dirent of skillDirs) {
+    if (!dirent.isDirectory()) continue;
+    let names = [];
+    try {
+      names = readdirSync(join(root, 'skills', dirent.name));
+    } catch {
+      /* unreadable — reported as missing below */
+    }
+    if (!names.includes('SKILL.md')) {
+      const misCased = names.find((n) => n.toLowerCase() === 'skill.md');
+      errors.push(
+        `skills/${dirent.name}/: missing SKILL.md` +
+          (misCased ? ` (found "${misCased}" — the file must be named exactly "SKILL.md")` : ''),
+      );
+    }
+  }
+
   return { errors, warnings };
 }
