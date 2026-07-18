@@ -40,6 +40,9 @@ test('parseScalarOrArray handles quoted scalars, arrays, and trailing comments',
   assert.deepEqual(parseScalarOrArray('["a"]   # comment'), ['a']);
   assert.equal(parseScalarOrArray('1 - high'), '1 - high');
   assert.deepEqual(parseScalarOrArray('[]'), []);
+  assert.equal(parseScalarOrArray('1'), 1); // unquoted number → Number
+  assert.equal(parseScalarOrArray('"1"'), '1'); // quoted → stays a string
+  assert.equal(parseScalarOrArray('true'), true);
 });
 
 test('parseFrontmatter reads scalars, inline + block arrays, comments, and body', () => {
@@ -64,6 +67,7 @@ test('parseFrontmatter reads scalars, inline + block arrays, comments, and body'
   assert.equal(frontmatter.description, 'Reviews a change.'); // comment stripped, quotes removed
   assert.deepEqual(frontmatter.roles, ['worker', 'verifier']); // array survives trailing comment
   assert.deepEqual(frontmatter.tags, ['review', 'verifier']); // block sequence
+  assert.equal(frontmatter.version, 1); // unquoted number coerced to Number
   assert.match(body, /Body prompt line\./);
 });
 
@@ -193,6 +197,12 @@ test('validateCatalog flags a loop missing a required section', () => {
   const noVerify = validLoop.replace('## Verify', '## Notes');
   const { errors } = validateFixture({ 'loops/ticket-to-pr-ready.md': noVerify });
   assert.ok(has(errors, /missing a non-empty "## Verify" section/));
+});
+
+test('validateCatalog rejects a quoted schema_version (the plugin parses it as a string and rejects)', () => {
+  const quoted = validLoop.replace('schema_version: 1', 'schema_version: "1"');
+  const { errors } = validateFixture({ 'loops/ticket-to-pr-ready.md': quoted });
+  assert.ok(has(errors, /`schema_version` must be the unquoted integer 1/));
 });
 
 test('validateCatalog flags a non-integer version', () => {

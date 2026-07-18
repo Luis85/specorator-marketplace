@@ -70,6 +70,12 @@ export function parseScalarOrArray(value) {
     const inner = v.slice(1, -1).trim();
     return inner ? inner.split(',').map((s) => unquote(s.trim())) : [];
   }
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  // Coerce unquoted numbers to Number, matching the plugin's real YAML parser, so a
+  // quoted `"1"` stays a string and schema_version validation can reject it (the store
+  // compares strictly to numeric 1).
+  if (v !== '' && !Number.isNaN(Number(v))) return Number(v);
   return unquote(v);
 }
 
@@ -243,8 +249,10 @@ export function validateCatalog(root) {
     if (type !== 'skill' && fm.type !== typeMarker) {
       err(`\`type\` must be "${typeMarker}" (got ${JSON.stringify(fm.type ?? null)})`);
     }
-    if ((type === 'loop' || type === 'template') && Number(fm.schema_version) !== 1) {
-      err('`schema_version` must be 1');
+    if ((type === 'loop' || type === 'template') && fm.schema_version !== 1) {
+      // Strict: a quoted `"1"` parses to the string "1" here (as it does in the plugin's
+      // YAML parser), which the loop/template store then rejects on install.
+      err('`schema_version` must be the unquoted integer 1');
     }
 
     if (name) {
