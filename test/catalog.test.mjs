@@ -325,6 +325,19 @@ test('buildItem includes files for skills and omits them for single-file types',
   assert.equal('files' in loopItem, false);
 });
 
+test('validateCatalog flags a binary file in a skill folder (skills are text-only)', () => {
+  const skill = ['---', 'name: my-skill', 'description: "Use when x."', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'body'].join('\n');
+  const root = makeCatalog({ 'skills/my-skill/SKILL.md': skill });
+  try {
+    // A PNG-signature file with a NUL byte — the plugin's text fetch would corrupt it.
+    writeFileSync(join(root, 'skills/my-skill/logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x0a]));
+    const { errors } = validateCatalog(root);
+    assert.ok(has(errors, /logo\.png.*binary.*text-only/), `expected binary error, got: ${errors.join('; ')}`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('validateCatalog errors on a skill folder with a mis-cased/missing SKILL.md', () => {
   const body = ['---', 'name: broken', 'description: d', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'x'].join('\n');
   const { errors } = validateFixture({ 'skills/broken/skill.md': body }); // lowercase

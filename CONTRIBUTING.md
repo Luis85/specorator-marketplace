@@ -162,6 +162,10 @@ test suite, scratch notes) — those would otherwise land in every installing us
 plugin installer chooses the provider root (Claude / Codex / Cursor) and scope (project / user) at
 install time, so the skill folder itself carries no provider- or scope-specific paths.
 
+Skills are **text-only**. The plugin fetches each file as text and writes it back as UTF-8, so a
+binary asset (image, font, archive, …) would be silently corrupted on install — `validate:strict`
+rejects any skill file containing a NUL byte. Keep skills to `SKILL.md` plus text supporting files.
+
 ## Before you open a PR
 
 Run the same checks CI enforces (no dependencies — Node ≥ 20 built-ins only):

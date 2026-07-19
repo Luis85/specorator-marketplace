@@ -49,6 +49,10 @@ version: 1
 Concise, imperative instructions — the reusable "how", not a one-off command.
 ```
 
+Skills must be **text-only** (`SKILL.md` plus text supporting files). The plugin fetches
+each file as text, so a binary asset would be corrupted on install; `validate:strict` rejects
+any skill file containing a NUL byte.
+
 See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the review bar and the `index.json`
 manifest rules. Run `node scripts/build-index.mjs` after adding a skill so the manifest
 picks it up (the generator reads `<skill-name>/SKILL.md`).

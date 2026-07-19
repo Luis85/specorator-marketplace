@@ -326,6 +326,20 @@ export function validateCatalog(root) {
     } else if (type === 'skill') {
       if (!nonEmptyString(fm.name)) err('skill SKILL.md missing `name`');
       if (!entry.body.trim()) err('skill SKILL.md body is empty');
+      // Skills are text-only: the plugin fetches every file as text and writes
+      // it back as UTF-8, so a binary asset would be silently corrupted on
+      // install. Flag any file with a NUL byte (the standard binary heuristic).
+      for (const rel of entry.files ?? []) {
+        let buf;
+        try {
+          buf = readFileSync(join(root, rel));
+        } catch {
+          continue; // unreadable is caught elsewhere
+        }
+        if (buf.includes(0)) {
+          err(`skill file "${rel}" is binary (contains a NUL byte); marketplace skills must be text-only`);
+        }
+      }
     }
 
     if (fm.source && !/^https:\/\//.test(String(fm.source))) warn('`source` should be an https:// URL');
