@@ -15,6 +15,7 @@ import {
   collectItems,
   buildManifest,
   validateCatalog,
+  listSkillFiles,
 } from '../scripts/lib/catalog.mjs';
 
 // --- pure helpers -----------------------------------------------------------
@@ -264,6 +265,64 @@ test('validateCatalog accepts a well-formed skill folder', () => {
   const { errors, warnings } = validateFixture({ 'skills/my-skill/SKILL.md': validSkill });
   assert.deepEqual(errors, []);
   assert.deepEqual(warnings, []);
+});
+
+test('collectItems lists every file in a multi-file skill folder (SKILL.md + supporting files, all under the folder)', () => {
+  const skill = ['---', 'name: multi', 'description: "Use when x."', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'body'].join('\n');
+  const root = makeCatalog({
+    'skills/multi/SKILL.md': skill,
+    'skills/multi/references/a.md': 'a',
+    'skills/multi/scripts/run.mjs': 'export const x = 1;',
+    'skills/multi/scripts/lib/dep.mjs': 'export const y = 2;',
+  });
+  try {
+    const item = collectItems(root).find((i) => i.id === 'skills/multi');
+    assert.ok(item, 'skill item present');
+    // The whole folder ships, not just SKILL.md. Assert the SET (sorted) so the
+    // test doesn't couple to locale-specific ordering of the deterministic walk.
+    assert.deepEqual([...item.files].sort(), [
+      'skills/multi/SKILL.md',
+      'skills/multi/references/a.md',
+      'skills/multi/scripts/lib/dep.mjs',
+      'skills/multi/scripts/run.mjs',
+    ]);
+    assert.ok(item.files.includes('skills/multi/SKILL.md'), 'SKILL.md included');
+    assert.ok(item.files.every((f) => f.startsWith('skills/multi/')), 'every file stays under the skill folder');
+    // Deterministic: same input → identical order (drives check:index freshness).
+    const again = collectItems(root).find((i) => i.id === 'skills/multi');
+    assert.deepEqual(again.files, item.files);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('listSkillFiles walks depth-first, lists only files, and skips the README housekeeping is caller-side', () => {
+  const root = makeCatalog({
+    'skills/s/SKILL.md': 'x',
+    'skills/s/nested/deep/f.txt': 'y',
+  });
+  try {
+    const files = listSkillFiles(root, 'skills/s');
+    assert.deepEqual([...files].sort(), ['skills/s/SKILL.md', 'skills/s/nested/deep/f.txt']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('buildItem includes files for skills and omits them for single-file types', () => {
+  const skillItem = buildItem({
+    folder: 'skills', type: 'skill', slug: 'multi', path: 'skills/multi/SKILL.md',
+    frontmatter: { name: 'multi', description: 'd', tags: ['x'] }, body: 'b',
+    files: ['skills/multi/SKILL.md', 'skills/multi/a.md'],
+  });
+  assert.deepEqual(skillItem.files, ['skills/multi/SKILL.md', 'skills/multi/a.md']);
+
+  const loopItem = buildItem({
+    folder: 'loops', type: 'loop', slug: 'x', path: 'loops/x.md',
+    frontmatter: { name: 'X', description: 'd', tags: ['a'] }, body: '',
+    files: ['loops/x.md'], // present on the entry but a non-skill type must not publish it
+  });
+  assert.equal('files' in loopItem, false);
 });
 
 test('validateCatalog errors on a skill folder with a mis-cased/missing SKILL.md', () => {

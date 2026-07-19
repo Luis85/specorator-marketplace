@@ -139,10 +139,34 @@ export function parseVersion(raw) {
 }
 
 /**
+ * Every file under a skill folder as repo-relative POSIX paths (forward slashes),
+ * depth-first with each directory level sorted by name — deterministic across
+ * platforms. A skill is multi-file: its `SKILL.md` plus any supporting
+ * `references/`, `scripts/`, or templates it ships. The manifest lists them all
+ * so the plugin can fetch and install the whole folder, not just the `SKILL.md`.
+ * Only regular files are listed (symlinks and sockets are skipped).
+ */
+export function listSkillFiles(root, skillRelDir) {
+  const files = [];
+  const walk = (relDir) => {
+    const dirents = readdirSync(join(root, relDir), { withFileTypes: true });
+    dirents.sort((a, b) => a.name.localeCompare(b.name));
+    for (const dirent of dirents) {
+      const rel = `${relDir}/${dirent.name}`;
+      if (dirent.isDirectory()) walk(rel);
+      else if (dirent.isFile()) files.push(rel);
+    }
+  };
+  walk(skillRelDir);
+  return files;
+}
+
+/**
  * Walks the category folders and returns one raw entry per item:
- * `{ folder, type, typeMarker, file, slug, path, frontmatter, body }`.
- * Handles the `skills/<name>/SKILL.md` subfolder layout. Deterministic order
- * (CATEGORIES order, then filename).
+ * `{ folder, type, typeMarker, file, slug, path, frontmatter, body }` (skills
+ * additionally carry `files` — every file in the skill folder). Handles the
+ * `skills/<name>/SKILL.md` subfolder layout. Deterministic order (CATEGORIES
+ * order, then filename).
  */
 export function readCatalogFiles(root) {
   const entries = [];
@@ -168,6 +192,7 @@ export function readCatalogFiles(root) {
         entries.push({
           folder, type, typeMarker, file: 'SKILL.md', slug: dirent.name,
           path: `${folder}/${dirent.name}/SKILL.md`, frontmatter, body,
+          files: listSkillFiles(root, `${folder}/${dirent.name}`),
         });
       }
       continue;
@@ -196,6 +221,10 @@ export function buildItem(entry) {
     path: entry.path,
     tags: toList(fm.tags),
   };
+  // Skills are multi-file: publish every file in the folder so the plugin can
+  // install the whole skill, not just its SKILL.md. Repo-relative POSIX paths,
+  // deterministic order (see listSkillFiles). Omitted for single-file types.
+  if (entry.type === 'skill' && Array.isArray(entry.files)) item.files = entry.files;
   if (fm.icon) item.icon = fm.icon;
   if (fm.roles) item.roles = toList(fm.roles);
   if (fm.priority) item.priority = fm.priority;
