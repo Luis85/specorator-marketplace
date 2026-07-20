@@ -23,7 +23,8 @@ so fixes land here.
   verification still runs the old runner. Fix: normalize/reject `testFramework`
   to `jest`|`vitest` up front, and freeze it after the first apply (the frozen
   value wins over a later explicit change), mirroring the structural Obsidian
-  choices.
+  choices. (Follow-up: the sibling `typescript` field is frozen the same way —
+  its skip-if-exists Jest/ESLint configs have the identical migration problem.)
 
 - [x] **2. `baseline.mjs` — only mark `.coverage-baselined` when a floor was applied.**
   When `applyCoverageFloor` returns `{ updated: false }` (no summary/config) the

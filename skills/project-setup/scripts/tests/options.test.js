@@ -77,6 +77,18 @@ test('freezeOptions freezes testFramework to the first apply (a later answer cha
   assert.equal(dflt.testFramework, 'jest');
 });
 
+test('freezeOptions freezes typescript to the first apply (a later answer change is ignored)', () => {
+  // Re-apply: the report recorded TS; a new answer asking for JS is ignored, since the
+  // skip-if-exists Jest/ESLint configs can't be reconciled to the new mode file-by-file.
+  const reapply = { typescript: false };
+  freezeOptions(reapply, { typescript: true, packageManager: 'npm' }, {});
+  assert.equal(reapply.typescript, true);
+  // First apply (no report): the explicit answer is honored.
+  const first = { typescript: false };
+  freezeOptions(first, null, {});
+  assert.equal(first.typescript, false);
+});
+
 test('loadOptions throws a clear error on malformed JSON', () => {
   const c = withConfig('{ not json');
   try {

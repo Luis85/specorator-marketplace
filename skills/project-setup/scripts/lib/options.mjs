@@ -249,7 +249,11 @@ export function freezeOptions(options, frozen, state) {
     frozen?.testFramework ?? options.testFramework ?? state?.testFramework, 'jest',
   );
   options.packageManager = safePackageManager(options.packageManager ?? frozen?.packageManager ?? state?.packageManager ?? 'npm');
-  options.typescript = options.typescript ?? frozen?.typescript ?? state?.typescript ?? true;
+  // typescript is FROZEN too (same reasoning as testFramework): the generated Jest and
+  // ESLint configs are skip-if-exists, so a JS<->TS switch after the first apply leaves a
+  // Jest config without ts-jest / an ESLint config without the TS preset (or vice versa),
+  // and the test/lint gate then fails though the report records the new mode. frozen wins.
+  options.typescript = frozen?.typescript ?? options.typescript ?? state?.typescript ?? true;
   // The Obsidian harness is Vitest + TypeScript by construction (single test
   // lane, vue-tsc/tsc typecheck gate) — a detected jest dep must not flip it.
   if (options.obsidian) {
