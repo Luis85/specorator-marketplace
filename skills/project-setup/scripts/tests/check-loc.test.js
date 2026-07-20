@@ -84,6 +84,31 @@ test('generated check-loc walker counts an acyclic symlinked source file (only c
   }
 });
 
+test('generated check-loc walker records BOTH a real dir and its alias (order-independent baseline)', () => {
+  // src/real/ is real; src/alias -> src/real. A GLOBAL visited set records the file
+  // under whichever path readdirSync hits first and SUPPRESSES the other, so a different
+  // enumeration order — or deleting the alias — then makes the unchanged src/real/huge.ts
+  // read as a new oversized file. An active recursion-stack scans both, so both paths are
+  // in the baseline regardless of order (before the fix, exactly one is — so asserting
+  // BOTH is a stable red).
+  const big = 'x\n'.repeat(600);
+  const p = tmpProject({ 'src/index.ts': 'export const x = 1;\n', 'src/real/huge.ts': big, 'package.json': { name: 'loc-alias' } });
+  try {
+    try {
+      symlinkSync(join(p.dir, 'src', 'real'), join(p.dir, 'src', 'alias'), 'dir'); // src/alias -> src/real
+    } catch {
+      return; // symlinks unsupported here
+    }
+    const script = renderCheckLoc(p.dir);
+    execFileSync('node', [script, '--update'], { cwd: p.dir, stdio: 'ignore', timeout: 20_000 });
+    const files = JSON.parse(readFileSync(join(p.dir, 'scripts', 'loc-baseline.json'), 'utf8')).files;
+    assert.equal(files['src/real/huge.ts'], 600); // the REAL path is always recorded...
+    assert.equal(files['src/alias/huge.ts'], 600); // ...as is the alias; neither is suppressed by enum order
+  } finally {
+    p.cleanup();
+  }
+});
+
 test('generated check-loc walker does not climb out of the source root via an ancestor symlink', () => {
   // A link to an ancestor (src/up -> the repo root) resolves to a dir that CONTAINS src;
   // descending it would climb above the source root and bank siblings-of-src into the

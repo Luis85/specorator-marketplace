@@ -92,14 +92,16 @@ the catalog PR that publishes the skill.
   `walk()` used `statSync(...).isDirectory()`, which **follows** symlinks: a directory
   symlink to an ancestor made it recurse the same tree until Node threw `ELOOP`, and a
   broken symlink threw immediately. Because initial apply runs the generated script with
-  `--update`, such a repo couldn't finish setup or pass `check:loc`. Fix: walk with
-  `realpathSync` cycle detection (a dir whose canonical path was seen is skipped) PLUS an
-  ancestor guard — skip any dir that strictly CONTAINS the scan root (`relative(real, SRC)`
-  has no leading `..`), so `src/up -> ..` can't climb out of `src/` and bank siblings into
-  the baseline — and `statSync` each entry in a try/catch so a broken link is dropped. This
-  still COUNTS an acyclic symlinked source file/dir (real source the build+tests consume)
-  rather than skipping every symlink. (`check-loc.mjs.tmpl`, review `r3613860489` + Codex PR
-  reviews on keeping acyclic file links countable and not climbing out via ancestor links.)
+  `--update`, such a repo couldn't finish setup or pass `check:loc`. Fix: walk with an
+  ACTIVE recursion-stack of canonical paths (`realpathSync`) — a dir already on the current
+  branch is a cycle and is cut (no `ELOOP`), while a real dir and an acyclic alias to it are
+  BOTH walked, so the baseline stays stable across readdir order and later alias removal —
+  PLUS an ancestor guard (skip any dir that strictly CONTAINS the scan root, so
+  `src/up -> ..` can't climb out and bank siblings) and a per-entry `statSync` try/catch (a
+  broken link is dropped). Acyclic symlinked source files/dirs are still COUNTED, not
+  skipped wholesale. (`check-loc.mjs.tmpl`, review `r3613860489` + three Codex PR-review
+  rounds: keep acyclic file links countable, don't climb out via ancestor links, and use an
+  active-path stack so a dir alias can't make the baseline order-dependent.)
 
 - [x] **9. `detect.mjs` — infer the test runner from a hand-written config file.**
   `detect()` set `testFramework` from a `vitest`/`jest` dep only, so a repo whose only

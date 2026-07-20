@@ -17,7 +17,7 @@ const EXT = /\.({{locExts}})$/;
 const IGNORE_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.fallow', '.project-setup-backup']);
 const update = process.argv.includes('--update');
 
-function walk(dir, out = [], seen = new Set()) {
+function walk(dir, out = [], stack = new Set()) {
   // statSync FOLLOWS symlinks, so a symlinked SOURCE FILE stays counted and an acyclic
   // symlinked source dir is still walked — only cyclic, broken, and ancestor links are
   // dropped. Initial apply runs this with --update, so it must never abort or climb out
@@ -34,8 +34,12 @@ function walk(dir, out = [], seen = new Set()) {
   // i.e. has no leading `..`, only for an ancestor; SRC itself gives '').
   const rel = relative(real, SRC_REAL);
   if (rel !== '' && !rel.startsWith('..')) return out;
-  if (seen.has(real)) return out; // already walked this real dir (symlink cycle)
-  seen.add(real);
+  // `stack` is the ACTIVE traversal path (not a global visited set): a real dir already
+  // on the current branch is a cycle -> stop. A real dir and an acyclic alias to it are
+  // NOT on each other's active path, so BOTH are walked and recorded — the baseline
+  // stays stable regardless of readdir order or later alias removal. Backtrack on exit.
+  if (stack.has(real)) return out;
+  stack.add(real);
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (IGNORE_DIRS.has(entry.name)) continue;
     const abs = join(dir, entry.name);
@@ -45,9 +49,10 @@ function walk(dir, out = [], seen = new Set()) {
     } catch {
       continue;
     }
-    if (st.isDirectory()) walk(abs, out, seen);
+    if (st.isDirectory()) walk(abs, out, stack);
     else if (st.isFile() && EXT.test(entry.name)) out.push(abs);
   }
+  stack.delete(real); // leave the active path so a sibling alias to this dir still counts
   return out;
 }
 const loc = (abs) => readFileSync(abs, 'utf8').split('\n').filter((l) => l.trim() !== '').length;
