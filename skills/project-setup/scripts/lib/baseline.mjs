@@ -59,10 +59,12 @@ export function initBaselines(cwd, options, exec = defaultExec, changed = []) {
     // Leave the tree coverage-absent (the state CI uses) so the immediate local
     // check:quality can't disagree with the static_estimated baseline.
     rmSync(join(cwd, 'coverage'), { recursive: true, force: true });
-    // Mark baselined (a 0% floor counts) so a later apply doesn't re-measure/raise it —
-    // but NOT when the runner produced no summary/config: no floor was established, so
-    // marking would freeze it at zero and block a re-baseline after `test:coverage` is
-    // fixed. An applied or already-present floor still marks.
-    if (floor.reason !== 'no summary/config') markCoverageBaselined(cwd);
+    // Mark baselined so a later apply doesn't re-measure/raise the floor — but ONLY when a
+    // floor was actually applied (a 0% floor counts) or is already present. The other
+    // outcomes are RETRYABLE: `no summary/config` (fix `test:coverage`) and `threshold
+    // anchor not found` (restore the anchor in the still-marked config) can establish a
+    // floor on a later apply, so marking them would freeze it at zero and block that.
+    const floorEstablished = floor.updated || floor.reason === 'already at floor';
+    if (floorEstablished) markCoverageBaselined(cwd);
   }
 }
