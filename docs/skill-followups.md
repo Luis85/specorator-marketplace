@@ -37,7 +37,7 @@ so fixes land here.
   while `skip-if-exists` preserves the broken manifest. Fix: don't force the
   package version in this state — preserve the existing one.
 
-- [ ] **4. `apply.mjs` — include the lockfile in the install-convergence check.**
+- [x] **4. `apply.mjs` — include the lockfile in the install-convergence check.**
   Convergence verifies the recorded manager + `node_modules`/PnP loader but not
   the lockfile, so a project that lost its lockfile while keeping `node_modules`
   reads as current and never regenerates it — and the generated CI

@@ -24,11 +24,12 @@ test('installDeps runs the package manager when package.json changed, and is not
   }
 });
 
-test('installDeps is skipped when package.json did not change, the marker records the same manager, and node_modules is present', () => {
+test('installDeps is skipped when the marker records the same manager and node_modules + lockfile are present', () => {
   const p = tmpProject({
     'package.json': { name: 'x', devDependencies: { left: '1.0.0' } },
     '.project-setup-backup/.installed': 'npm', // marker records the manager it installed with
-    'node_modules/.keep': '', // deps still present
+    'node_modules/.keep': '', // deps present
+    'package-lock.json': '{}', // and the manager's lockfile the generated CI needs
   });
   const calls = [];
   try {
@@ -36,7 +37,28 @@ test('installDeps is skipped when package.json did not change, the marker record
       { type: 'mergeJson', path: 'package.json', patch: { devDependencies: { left: '1.0.0' } } },
       { type: 'installDeps', packageManager: 'npm' },
     ], { cwd: p.dir, exec: (...a) => calls.push(a) });
-    assert.equal(calls.length, 0); // converged + marker matches + deps present -> no install
+    assert.equal(calls.length, 0); // marker matches + deps present + lockfile present -> no install
+  } finally {
+    p.cleanup();
+  }
+});
+
+test('installDeps REINSTALLS when the manager lockfile is missing even though node_modules + marker are present', () => {
+  // A project that lost its package-lock.json but kept node_modules reads as installed
+  // by manager+node_modules alone, yet the generated CI runs `npm ci` / `--frozen-lockfile`
+  // and fails without the lockfile — so convergence must require it; reinstall regenerates it.
+  const p = tmpProject({
+    'package.json': { name: 'x', devDependencies: { left: '1.0.0' } },
+    '.project-setup-backup/.installed': 'npm',
+    'node_modules/.keep': '', // deps present, but NO package-lock.json
+  });
+  const calls = [];
+  try {
+    apply([
+      { type: 'mergeJson', path: 'package.json', patch: { devDependencies: { left: '1.0.0' } } },
+      { type: 'installDeps', packageManager: 'npm' },
+    ], { cwd: p.dir, exec: (cmd, args) => calls.push(`${cmd} ${args.join(' ')}`) });
+    assert.deepEqual(calls, ['npm install']); // missing lockfile -> reinstall to regenerate it
   } finally {
     p.cleanup();
   }
@@ -79,6 +101,7 @@ test('installDeps treats a Yarn PnP layout (.pnp.cjs, no node_modules) as conver
     'package.json': { name: 'x', devDependencies: { left: '1.0.0' } },
     '.project-setup-backup/.installed': 'yarn',
     '.pnp.cjs': '/* pnp loader */', // Yarn PnP artifact; no node_modules dir
+    'yarn.lock': '', // PnP still writes yarn.lock, which the CI needs
   });
   const calls = [];
   try {

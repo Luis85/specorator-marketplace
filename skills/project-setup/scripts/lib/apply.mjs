@@ -6,6 +6,17 @@ import process from 'node:process';
 
 import { backupFile, mergeJsonFile, mergeTextLines } from './merge.mjs';
 
+// The lockfile each manager's install produces. Convergence requires one to exist:
+// the generated CI runs `npm ci` / an install with `--frozen-lockfile`, which fails
+// outright without it, so a tree that kept node_modules but lost its lockfile is NOT
+// installed-current — reinstalling regenerates it.
+const MANAGER_LOCKFILES = {
+  npm: ['package-lock.json', 'npm-shrinkwrap.json'],
+  pnpm: ['pnpm-lock.yaml'],
+  yarn: ['yarn.lock'],
+  bun: ['bun.lockb', 'bun.lock'],
+};
+
 export function apply(actions, opts = {}) {
   const cwd = opts.cwd ?? process.cwd();
   const dryRun = opts.dryRun ?? false;
@@ -48,7 +59,14 @@ export function apply(actions, opts = {}) {
       const pnpPresent = existsSync(join(cwd, '.pnp.cjs')) || existsSync(join(cwd, '.pnp.js'));
       const depsPresent =
         existsSync(join(cwd, 'node_modules')) || (action.packageManager === 'yarn' && pnpPresent);
-      const installCurrent = installedWith === action.packageManager && depsPresent;
+      // The manager's lockfile must exist too (see MANAGER_LOCKFILES): deps present with
+      // no lockfile still fails the generated `--frozen-lockfile` CI. An unknown manager
+      // (should not occur — safePackageManager gates it) doesn't gate on a lockfile.
+      const managerLockfiles = MANAGER_LOCKFILES[action.packageManager];
+      const lockfilePresent =
+        !managerLockfiles || managerLockfiles.some((f) => existsSync(join(cwd, f)));
+      const installCurrent =
+        installedWith === action.packageManager && depsPresent && lockfilePresent;
       if (!dryRun && (changed.includes('package.json') || !installCurrent)) {
         exec(action.packageManager, ['install'], { cwd });
         mkdirSync(dirname(marker), { recursive: true });
