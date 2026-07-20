@@ -205,17 +205,16 @@ export function planTest(options, state) {
   const exts = options.typescript === false ? 'js,jsx,mjs,cjs' : 'ts,tsx,mts,cts,js,jsx,mjs,cjs';
   const srcDir = entryDir(state?.entry ?? 'src/index.ts'); // sanitized; null => root
   const coverageGlobs = srcDir ? `${srcDir}/**/*.{${exts}}` : `**/*.{${exts}}`;
-  // A ROOT-layout coverage set globs the WHOLE repo (`**/*`), so subtract non-product
-  // files the floor must never measure: the generated ROOT tooling config
-  // (eslint.config.mjs + the jest/vitest runner config), the setup's own backup dir,
-  // and coverage output. The config-file exclude is ROOT-scoped (`*.config.*`, no
-  // `**/`) on purpose: a recursive `**/*.config.*` would also drop a nested PRODUCT
-  // module like `lib/database.config.ts`, distorting the floor. The generated tooling
-  // configs all live at the repo root, so root-scoping covers them without catching
-  // product code. A src/-scoped layout keeps these OUTSIDE src/, so it needs none.
-  // Rendered as trailing entries so the template's base excludes stay intact; jest
+  // A ROOT-layout coverage set globs the WHOLE repo (`**/*`), so subtract the files the
+  // floor must never measure. Enumerate the GENERATED tooling configs by EXACT basename
+  // (eslint.config + the resolved runner config) rather than a broad `*.config.*`: a
+  // root-layout project may legitimately keep a PRODUCT module like `database.config.ts`
+  // at the root, and it must stay in coverage — no product module is ever named
+  // eslint.config / jest.config / vitest.config. Plus the setup's own backup dir and
+  // coverage output. A src/-scoped layout keeps all of these OUTSIDE src/, so it needs
+  // none. Rendered as trailing entries so the template's base excludes stay intact; jest
   // negates inside collectCoverageFrom (`!glob`), vitest uses a bare `exclude` array.
-  const nonSourceGlobs = srcDir ? [] : ['*.config.{js,cjs,mjs,ts,cts,mts}', '**/.project-setup-backup/**', '**/coverage/**'];
+  const nonSourceGlobs = srcDir ? [] : ['eslint.config.*', `${fw}.config.*`, '**/.project-setup-backup/**', '**/coverage/**'];
   const jestExtraExcludes = nonSourceGlobs.map((g) => `, '!${g}'`).join('');
   const vitestExtraExcludes = nonSourceGlobs.map((g) => `, '${g}'`).join('');
   const cov = Boolean(options.guardrails?.coverageFloors);

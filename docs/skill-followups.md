@@ -80,11 +80,13 @@ the catalog PR that publishes the skill.
   didn't drop `eslint.config.mjs`, the jest/vitest runner config, or
   `.project-setup-backup`, so the floor measured non-product code and later
   tooling/backup changes could distort the coverage gate. Fix: for a root-layout
-  coverage set, add non-source excludes — the ROOT-level `*.config.*` (covers eslint +
-  the runner config; root-scoped, no `**/`, so a nested product module like
-  `lib/database.config.ts` isn't dropped from coverage), the `.project-setup-backup`
-  dir, and coverage output; a `src/`-scoped layout keeps these outside `src/` and needs
-  none. (`harness.mjs`, review `r3613738207` + Codex PR review on the root-scope.)
+  coverage set, add non-source excludes — the generated tooling configs enumerated by
+  EXACT basename (`eslint.config.*` + the resolved runner config `jest.config.*` /
+  `vitest.config.*`, never a broad `*.config.*`, so a root PRODUCT module like
+  `database.config.ts` stays in coverage), the `.project-setup-backup` dir, and coverage
+  output; a `src/`-scoped layout keeps these outside `src/` and needs none. (`harness.mjs`,
+  review `r3613738207` + two Codex PR-review rounds tightening the config exclusion to
+  exact tooling basenames.)
 
 - [x] **8. `check-loc.mjs.tmpl` — don't crash (or over-skip) on symlinks in the LOC walker.**
   `walk()` used `statSync(...).isDirectory()`, which **follows** symlinks: a directory
@@ -149,3 +151,29 @@ appended here (with file, review, and the fix + test to add) before they're work
   real symlink containment would mean realpath-guarding the whole scan pipeline —
   disproportionate for a self-owned-repo edge. Revisit only if the skill ever scans an
   untrusted tree.
+
+- **`detect.mjs` — infer `vitest` from a bare `vite.config.*` (Codex PR review on item 9).**
+  A package with `vitest` hoisted and its tests configured in `vite.config.ts` (no
+  separate `vitest.config`) is inferred as jest. Declined: `vite.config` is primarily a
+  **bundler** config, and inferring vitest from its mere presence would make a
+  bundler-only Vite repo (no tests) stand the test gate down and get **no** test
+  scaffolding — worse than the current jest default, which always leaves a working test
+  gate. The codebase deliberately treats `viteConfig` as a stand-down signal only when
+  vitest is already resolved (dep / answer / `vitest.config`), precisely because
+  `vite.config` alone is ambiguous. A content-aware variant (infer vitest only if the
+  file imports `vitest/config` or declares a `test:` block) is possible but relies on a
+  fragile text heuristic over the config; the reviewer's scenario is a narrow
+  monorepo-leaf case, and `project-setup` targets single-repo scaffolding. Revisit if a
+  content-aware signal proves worth the fragility.
+
+- **`harness.mjs` — exclude a custom `--backup-dir` from the root-layout coverage set (Codex PR review on item 7).**
+  The root-layout coverage excludes drop the default `.project-setup-backup/` but not an
+  arbitrary in-project `--backup-dir`. Declined as a non-issue: the reviewer's example
+  (a backed-up `eslint.config.mjs`) can't occur — `eslint.config.mjs` and the runner
+  config are `skip-if-exists`, so they're **never** backed up. The only `overwrite-backup`
+  files with a coverage source extension (generic root layout) live under `scripts/`
+  (`check-loc.mjs`, `check-quality.mjs`, `quality-report.mjs`), which the base excludes
+  already drop at **any** depth (`!**/scripts/...`), so a copy under any backup dir is
+  excluded wherever it lands. Threading a per-invocation CLI flag into the committed
+  coverage config would also bake a transient choice into a persistent file. Revisit only
+  if an `overwrite-backup` **source** file is ever written outside `scripts/`.
