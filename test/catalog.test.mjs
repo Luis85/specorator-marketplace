@@ -309,6 +309,26 @@ test('listSkillFiles walks depth-first, lists only files, and skips the README h
   }
 });
 
+test("listSkillFiles excludes the skill's own scripts/tests suite but keeps shipped template tests", () => {
+  const root = makeCatalog({
+    'skills/s/SKILL.md': 'x',
+    'skills/s/scripts/setup.mjs': 'code',
+    'skills/s/scripts/tests/setup.test.js': 'dev-only', // skill's own suite → not distributed
+    'skills/s/scripts/tests/helpers.js': 'dev-only', // support file in the suite → not distributed
+    'skills/s/scripts/templates/app/tests/x.test.ts.tmpl': 'scaffolding', // shipped in the skill
+  });
+  try {
+    const files = listSkillFiles(root, 'skills/s');
+    assert.deepEqual([...files].sort(), [
+      'skills/s/SKILL.md',
+      'skills/s/scripts/setup.mjs',
+      'skills/s/scripts/templates/app/tests/x.test.ts.tmpl',
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('buildItem includes files for skills and omits them for single-file types', () => {
   const skillItem = buildItem({
     folder: 'skills', type: 'skill', slug: 'multi', path: 'skills/multi/SKILL.md',

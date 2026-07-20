@@ -153,8 +153,17 @@ export function listSkillFiles(root, skillRelDir) {
     dirents.sort((a, b) => a.name.localeCompare(b.name));
     for (const dirent of dirents) {
       const rel = `${relDir}/${dirent.name}`;
-      if (dirent.isDirectory()) walk(rel);
-      else if (dirent.isFile()) files.push(rel);
+      if (dirent.isDirectory()) {
+        // A skill's own behavioral test suite lives at `scripts/tests/` — a dev
+        // artifact that gates the scripts in CI but is never installed, so it's
+        // kept out of the distributed manifest. Only this exact skill-relative
+        // path is skipped: scaffolding the skill SHIPS (anything under
+        // `templates/`, including template `tests/` dirs) is unaffected.
+        if (rel.slice(skillRelDir.length + 1) === 'scripts/tests') continue;
+        walk(rel);
+      } else if (dirent.isFile()) {
+        files.push(rel);
+      }
     }
   };
   walk(skillRelDir);
