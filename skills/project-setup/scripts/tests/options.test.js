@@ -61,6 +61,22 @@ test('freezeOptions makes the obsidian vue/mobile variant immutable across re-ap
   assert.equal(fresh.obsidian.mobile, true);
 });
 
+test('freezeOptions freezes testFramework to the first apply (a later answer change is ignored)', () => {
+  // Re-apply: the prior report recorded jest; a new answer asking for vitest is ignored,
+  // because switching runners can't be reconciled file-by-file (see freezeOptions).
+  const reapply = { testFramework: 'vitest' };
+  freezeOptions(reapply, { testFramework: 'jest', packageManager: 'npm' }, {});
+  assert.equal(reapply.testFramework, 'jest');
+  // First apply (no prior report): the explicit answer is honored.
+  const first = { testFramework: 'vitest' };
+  freezeOptions(first, null, {});
+  assert.equal(first.testFramework, 'vitest');
+  // Neither answer nor report: falls back to the default runner.
+  const dflt = {};
+  freezeOptions(dflt, null, {});
+  assert.equal(dflt.testFramework, 'jest');
+});
+
 test('loadOptions throws a clear error on malformed JSON', () => {
   const c = withConfig('{ not json');
   try {
@@ -94,6 +110,27 @@ test('loadOptions keeps a valid integer locCap', () => {
     assert.equal(loadOptions(c.path).locCap, 300);
   } finally {
     c.cleanup();
+  }
+});
+
+test('loadOptions rejects an unsupported testFramework (would otherwise throw in coverage baselining)', () => {
+  const c = withConfig(JSON.stringify({ testFramework: 'mocha' }));
+  try {
+    assert.throws(() => loadOptions(c.path), /Unsupported "testFramework".*mocha/);
+  } finally {
+    c.cleanup();
+  }
+});
+
+test('loadOptions accepts a supported testFramework and leaves an omitted one null (auto-detect)', () => {
+  const c1 = withConfig(JSON.stringify({ testFramework: 'vitest' }));
+  const c2 = withConfig(JSON.stringify({}));
+  try {
+    assert.equal(loadOptions(c1.path).testFramework, 'vitest');
+    assert.equal(loadOptions(c2.path).testFramework, null);
+  } finally {
+    c1.cleanup();
+    c2.cleanup();
   }
 });
 

@@ -197,6 +197,16 @@ function sanitizePrds(raw) {
   });
 }
 
+// The test runners the engine can generate + baseline. Anything else is unsupported.
+const TEST_FRAMEWORKS = ['jest', 'vitest'];
+function isSupportedTestFramework(value) {
+  return TEST_FRAMEWORKS.includes(value);
+}
+// Coerce a possibly stale/foreign report or detected value to a supported runner.
+function safeTestFramework(value, fallback = 'jest') {
+  return isSupportedTestFramework(value) ? value : fallback;
+}
+
 export function loadOptions(configPath) {
   let raw;
   try {
@@ -206,6 +216,14 @@ export function loadOptions(configPath) {
   }
   if (!isObject(raw)) throw new Error('answers JSON must be a JSON object.');
   const options = mergeDefaults(DEFAULTS, raw);
+  // A test runner the engine doesn't generate (e.g. "mocha") would survive to apply and
+  // then throw in applyCoverageFloor (CONFIG[framework] undefined) after files/deps were
+  // already mutated. Reject an explicit unsupported value up front; null => auto-detect.
+  if (options.testFramework != null && !isSupportedTestFramework(options.testFramework)) {
+    throw new Error(
+      `Unsupported "testFramework": ${JSON.stringify(options.testFramework)} — use "jest" or "vitest", or omit it to auto-detect.`,
+    );
+  }
   // Harden values that get rendered into generated executables. locCap is
   // templated raw into check-loc.mjs (`const MAX_LOC = <locCap>`), so a non-numeric
   // value would inject code — force a safe positive integer.
@@ -221,7 +239,15 @@ export function loadOptions(configPath) {
 // flip them (which would rewrite the report / re-baseline). packageManager is also
 // whitelisted here — it's exec'd. Shared by `apply` and `verify`.
 export function freezeOptions(options, frozen, state) {
-  options.testFramework = options.testFramework ?? frozen?.testFramework ?? state?.testFramework ?? 'jest';
+  // testFramework is FROZEN to the first apply's runner: switching it after setup
+  // (jest<->vitest) can't be reconciled file-by-file — planTest's non-forced merge keeps
+  // the old scripts, planEslint keeps the old config via skip-if-exists, and the coverage
+  // marker blocks a new floor — so a later explicit change is ignored, like the structural
+  // Obsidian choices below. frozen (prior report) wins; else the first apply's answer, then
+  // detection, then default. safeTestFramework guards a stale/foreign report value too.
+  options.testFramework = safeTestFramework(
+    frozen?.testFramework ?? options.testFramework ?? state?.testFramework, 'jest',
+  );
   options.packageManager = safePackageManager(options.packageManager ?? frozen?.packageManager ?? state?.packageManager ?? 'npm');
   options.typescript = options.typescript ?? frozen?.typescript ?? state?.typescript ?? true;
   // The Obsidian harness is Vitest + TypeScript by construction (single test

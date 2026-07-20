@@ -1,7 +1,7 @@
 ---
 title: project-setup skill — follow-up backlog
 date: 2026-07-20
-status: in-progress
+status: done
 scope: skills/project-setup
 ---
 
@@ -13,7 +13,7 @@ suite (`skills/project-setup/scripts/tests/`), which the catalog's `npm test`
 gates. The skill's canonical home is this repo (the plugin-repo copy was removed),
 so fixes land here.
 
-- [ ] **1. `options.mjs` / `harness.mjs` — validate and freeze `testFramework`.**
+- [x] **1. `options.mjs` — validate and freeze `testFramework`.**
   An unsupported value (e.g. `mocha`) survives `loadOptions` and later throws in
   `applyCoverageFloor` (`CONFIG[framework]` undefined) after files/deps are
   already mutated. Separately, changing the framework after the first apply
