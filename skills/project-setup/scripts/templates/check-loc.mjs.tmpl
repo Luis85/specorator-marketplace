@@ -9,24 +9,31 @@ const ROOT = process.cwd();
 const BASELINE = join(ROOT, 'scripts', 'loc-baseline.json');
 const MAX_LOC = {{locCap}};
 const SRC = join(ROOT, '{{srcDir}}'); // source root derived from the detected entry
+// The canonical source root, so the walker can reject a symlink that resolves to an
+// ANCESTOR of it (which would climb out of src/ and scan siblings). Falls back to SRC
+// when it doesn't exist yet (nothing to walk then anyway).
+const SRC_REAL = (() => { try { return realpathSync(SRC); } catch { return SRC; } })();
 const EXT = /\.({{locExts}})$/;
 const IGNORE_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.fallow', '.project-setup-backup']);
 const update = process.argv.includes('--update');
 
 function walk(dir, out = [], seen = new Set()) {
   // statSync FOLLOWS symlinks, so a symlinked SOURCE FILE stays counted and an acyclic
-  // symlinked source dir is still walked — only cyclic and broken links are dropped.
-  // Guard cycles with the set of already-visited REAL paths (realpathSync canonicalizes
-  // the link target): a dir whose real path was already seen is skipped, so a directory
-  // symlink pointing at an ancestor can't recurse until Node throws ELOOP. A
-  // broken/dangling link throws on stat and is skipped. Initial apply runs this with
-  // --update, so it must never abort on a symlink.
+  // symlinked source dir is still walked — only cyclic, broken, and ancestor links are
+  // dropped. Initial apply runs this with --update, so it must never abort or climb out
+  // of the source root.
   let real;
   try {
     real = realpathSync(dir);
   } catch {
     return out; // missing dir, or a broken link target
   }
+  // A link to an ANCESTOR of the scan root (e.g. src/up -> ..) resolves to a dir that
+  // CONTAINS src; descending it would climb out of the source root and scan unrelated
+  // siblings. Skip any dir that strictly contains SRC (relative(real, SRC) points DOWN,
+  // i.e. has no leading `..`, only for an ancestor; SRC itself gives '').
+  const rel = relative(real, SRC_REAL);
+  if (rel !== '' && !rel.startsWith('..')) return out;
   if (seen.has(real)) return out; // already walked this real dir (symlink cycle)
   seen.add(real);
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

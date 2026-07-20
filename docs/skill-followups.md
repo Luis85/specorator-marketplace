@@ -92,13 +92,14 @@ the catalog PR that publishes the skill.
   `walk()` used `statSync(...).isDirectory()`, which **follows** symlinks: a directory
   symlink to an ancestor made it recurse the same tree until Node threw `ELOOP`, and a
   broken symlink threw immediately. Because initial apply runs the generated script with
-  `--update`, such a repo couldn't finish setup or pass `check:loc`. Fix: walk with a set
-  of already-visited REAL paths (`realpathSync`) so a dir whose canonical path was seen is
-  skipped — breaking an ancestor cycle without `ELOOP` — and `statSync` each entry inside
-  a try/catch so a broken/cyclic link is dropped. This still COUNTS an acyclic symlinked
-  source file/dir (real source the build+tests consume) rather than skipping every
-  symlink. (`check-loc.mjs.tmpl`, review `r3613860489` + Codex PR review on keeping
-  acyclic file links countable.)
+  `--update`, such a repo couldn't finish setup or pass `check:loc`. Fix: walk with
+  `realpathSync` cycle detection (a dir whose canonical path was seen is skipped) PLUS an
+  ancestor guard — skip any dir that strictly CONTAINS the scan root (`relative(real, SRC)`
+  has no leading `..`), so `src/up -> ..` can't climb out of `src/` and bank siblings into
+  the baseline — and `statSync` each entry in a try/catch so a broken link is dropped. This
+  still COUNTS an acyclic symlinked source file/dir (real source the build+tests consume)
+  rather than skipping every symlink. (`check-loc.mjs.tmpl`, review `r3613860489` + Codex PR
+  reviews on keeping acyclic file links countable and not climbing out via ancestor links.)
 
 - [x] **9. `detect.mjs` — infer the test runner from a hand-written config file.**
   `detect()` set `testFramework` from a `vitest`/`jest` dep only, so a repo whose only

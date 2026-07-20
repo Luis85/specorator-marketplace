@@ -84,6 +84,30 @@ test('generated check-loc walker counts an acyclic symlinked source file (only c
   }
 });
 
+test('generated check-loc walker does not climb out of the source root via an ancestor symlink', () => {
+  // A link to an ancestor (src/up -> the repo root) resolves to a dir that CONTAINS src;
+  // descending it would climb above the source root and bank siblings-of-src into the
+  // LOC baseline (e.g. sibling/huge.ts under a src/up/... path).
+  const big = 'x\n'.repeat(600);
+  const p = tmpProject({ 'src/index.ts': 'export const x = 1;\n', 'sibling/huge.ts': big, 'package.json': { name: 'loc-ancestor' } });
+  try {
+    try {
+      symlinkSync(p.dir, join(p.dir, 'src', 'up'), 'dir'); // src/up -> <repo root>
+    } catch {
+      return; // symlinks unsupported here
+    }
+    const script = renderCheckLoc(p.dir);
+    assert.doesNotThrow(() =>
+      execFileSync('node', [script, '--update'], { cwd: p.dir, stdio: 'ignore', timeout: 20_000 }),
+    );
+    const keys = Object.keys(JSON.parse(readFileSync(join(p.dir, 'scripts', 'loc-baseline.json'), 'utf8')).files);
+    assert.ok(!keys.some((k) => k.includes('huge.ts')), `sibling file leaked into the LOC baseline: ${keys.join(', ')}`);
+    assert.ok(!keys.some((k) => k.includes('up/')), `walker descended through the ancestor link: ${keys.join(', ')}`);
+  } finally {
+    p.cleanup();
+  }
+});
+
 test('generated check-loc walker skips a broken symlink without throwing', () => {
   const p = tmpProject({ 'src/index.ts': 'export const x = 1;\n', 'package.json': { name: 'loc-broken' } });
   try {
