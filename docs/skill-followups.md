@@ -64,18 +64,17 @@ the catalog PR that publishes the skill.
   freeze `typescript` like `testFramework` (the first-apply value wins over a later
   explicit change).
 
-## Open — gaps to close
-
-- [ ] **6. `detect.mjs` — detect TypeScript from the source entry.**
-  `detect()` sets `typescript` from a `typescript` dep or a `tsconfig.json` only. A
-  project whose entry is already `src/index.ts` but that hasn't added either reports
+- [x] **6. `detect.mjs` — detect TypeScript from the source entry.**
+  `detect()` set `typescript` from a `typescript` dep or a `tsconfig.json` only, so a
+  project whose entry is already `src/index.ts` but that had added neither reported
   `typescript: false`, which is then **frozen** on the first apply (item 5) — so the
-  generated Jest and ESLint configs take their JS-only paths and coverage excludes all
+  generated Jest and ESLint configs took their JS-only paths and coverage excluded all
   `.ts` sources (TS tests fail to parse, or a testless project establishes a misleading
-  0% floor over ignored product code). Fix: also treat a real entry with a TS-family
-  extension (`.ts/.tsx/.mts/.cts`, using the existing `entry` + `entryExists`) as
-  TypeScript. Test: `detect()` returns `typescript: true` for a repo with only
-  `src/index.ts` and no dep/tsconfig. (`detect.mjs:170`, review `r3613860480`.)
+  0% floor over ignored product code). Fix: also treat a real (existing) entry with a
+  TS-family extension (`.ts/.tsx/.mts/.cts`, using the existing `entry` + `entryExists`)
+  as TypeScript. (`detect.mjs`, review `r3613860480`.)
+
+## Open — gaps to close
 
 - [ ] **7. `harness.mjs` — exclude non-source files from a root-layout coverage set.**
   When the detected entry is at the repo root (e.g. `index.js`), `coverageGlobs`

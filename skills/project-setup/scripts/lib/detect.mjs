@@ -165,9 +165,16 @@ export function detect(cwd) {
   const testFramework = has('vitest') ? 'vitest' : has('jest') ? 'jest' : null;
   const entry = detectEntry(cwd);
   const entryExists = existsSync(join(cwd, entry));
+  // A real source entry with a TS-family extension is a TypeScript project even
+  // without a `typescript` dep or a tsconfig.json — otherwise typescript is frozen
+  // false on the first apply (options.mjs) and the generated Jest/ESLint configs
+  // take their JS-only paths while coverage excludes every .ts source. Only an
+  // EXISTING entry counts: detectEntry returns src/index.ts as a syntactic
+  // fallback, so a fileless repo must stay undecided (entryExists guards it).
+  const tsEntry = entryExists && /\.(ts|tsx|mts|cts)$/.test(entry);
   return {
     packageManager: detectPackageManager(cwd),
-    typescript: has('typescript') || existsSync(join(cwd, 'tsconfig.json')),
+    typescript: has('typescript') || existsSync(join(cwd, 'tsconfig.json')) || tsEntry,
     eslint: has('eslint'),
     fallow: has('fallow'),
     testFramework,

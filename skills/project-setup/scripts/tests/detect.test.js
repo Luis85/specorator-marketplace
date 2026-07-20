@@ -48,6 +48,25 @@ test('detect reports tooling presence from package.json', () => {
   }
 });
 
+test('detect infers TypeScript from a .ts source entry (no dep, no tsconfig)', () => {
+  // A repo whose only TS signal is src/index.ts — no `typescript` dep, no
+  // tsconfig.json. The entry's extension must set typescript:true, else it's
+  // frozen false on the first apply and the generated Jest/ESLint configs take
+  // their JS-only paths while coverage excludes every .ts source.
+  const ts = tmpProject({ 'src/index.ts': 'export const x = 1;\n' });
+  const js = tmpProject({ 'src/index.js': 'export const x = 1;\n' });
+  const empty = tmpProject({}); // no entry file -> the src/index.ts fallback is syntactic
+  try {
+    assert.equal(detect(ts.dir).typescript, true);
+    assert.equal(detect(js.dir).typescript, false); // a real JS entry stays JS
+    assert.equal(detect(empty.dir).typescript, false); // a fileless repo stays undecided
+  } finally {
+    ts.cleanup();
+    js.cleanup();
+    empty.cleanup();
+  }
+});
+
 test('detectPackageManager returns bun for a bun.lock file (v1.2+ text lockfile)', () => {
   const p = tmpProject({ 'bun.lock': '' });
   try {
