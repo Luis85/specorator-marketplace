@@ -338,6 +338,16 @@ export function validateCatalog(root) {
         }
         if (buf.includes(0)) {
           err(`skill file "${rel}" is binary (contains a NUL byte); marketplace skills must be text-only`);
+          continue;
+        }
+        // Beyond the NUL heuristic, reject invalid UTF-8: the plugin decodes each
+        // file as UTF-8 text and writes it back, so a NUL-free binary (e.g. a JPEG
+        // starting `ff d8 ff`) would be corrupted into replacement characters. A
+        // strict (fatal) decode throws on any invalid byte sequence.
+        try {
+          new TextDecoder('utf-8', { fatal: true }).decode(buf);
+        } catch {
+          err(`skill file "${rel}" is not valid UTF-8 text; marketplace skills must be text-only`);
         }
       }
     }

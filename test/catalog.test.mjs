@@ -338,6 +338,20 @@ test('validateCatalog flags a binary file in a skill folder (skills are text-onl
   }
 });
 
+test('validateCatalog flags a NUL-free but invalid-UTF-8 skill file (strict text-only)', () => {
+  const skill = ['---', 'name: my-skill', 'description: "Use when x."', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'body'].join('\n');
+  const root = makeCatalog({ 'skills/my-skill/SKILL.md': skill });
+  try {
+    // JPEG signature bytes: no NUL (so the NUL heuristic passes), but 0xff is not a
+    // valid UTF-8 start byte, so a strict decode rejects it.
+    writeFileSync(join(root, 'skills/my-skill/photo.dat'), Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+    const { errors } = validateCatalog(root);
+    assert.ok(has(errors, /photo\.dat.*UTF-8.*text-only/), `expected UTF-8 error, got: ${errors.join('; ')}`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('validateCatalog errors on a skill folder with a mis-cased/missing SKILL.md', () => {
   const body = ['---', 'name: broken', 'description: d', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'x'].join('\n');
   const { errors } = validateFixture({ 'skills/broken/skill.md': body }); // lowercase
