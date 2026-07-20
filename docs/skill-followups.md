@@ -96,12 +96,14 @@ the catalog PR that publishes the skill.
   ACTIVE recursion-stack of canonical paths (`realpathSync`) — a dir already on the current
   branch is a cycle and is cut (no `ELOOP`), while a real dir and an acyclic alias to it are
   BOTH walked, so the baseline stays stable across readdir order and later alias removal —
-  PLUS an ancestor guard (skip any dir that strictly CONTAINS the scan root, so
-  `src/up -> ..` can't climb out and bank siblings) and a per-entry `statSync` try/catch (a
-  broken link is dropped). Acyclic symlinked source files/dirs are still COUNTED, not
-  skipped wholesale. (`check-loc.mjs.tmpl`, review `r3613860489` + three Codex PR-review
-  rounds: keep acyclic file links countable, don't climb out via ancestor links, and use an
-  active-path stack so a dir alias can't make the baseline order-dependent.)
+  PLUS an ancestor guard (skip any dir that strictly CONTAINS the scan root — compared by
+  `..` path SEGMENT, not string prefix, so a dir literally named `..src` isn't mistaken for
+  `../` — so `src/up -> ..` can't climb out and bank siblings) and a per-entry `statSync`
+  try/catch (a broken link is dropped). Acyclic symlinked source files/dirs are still
+  COUNTED, not skipped wholesale. (`check-loc.mjs.tmpl`, review `r3613860489` + four Codex
+  PR-review rounds: keep acyclic file links countable, don't climb out via ancestor links,
+  use an active-path stack so a dir alias can't make the baseline order-dependent, and
+  compare `..` path segments in the ancestor guard.)
 
 - [x] **9. `detect.mjs` — infer the test runner from a hand-written config file.**
   `detect()` set `testFramework` from a `vitest`/`jest` dep only, so a repo whose only

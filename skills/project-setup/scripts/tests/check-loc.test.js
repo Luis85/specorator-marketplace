@@ -133,6 +133,34 @@ test('generated check-loc walker does not climb out of the source root via an an
   }
 });
 
+test('generated check-loc ancestor guard compares `..` path segments, not a string prefix', () => {
+  // A source dir literally named `..src` (entryDir allows it — it isn't exactly `..`):
+  // relative(<root>, <root>/..src) === "..src", which a naive startsWith("..") mistakes
+  // for parent traversal, so an ancestor link ..src/up -> <root> is NOT rejected and the
+  // walker climbs out and banks siblings (..src/up/sibling/huge.ts) into the baseline.
+  const big = 'x\n'.repeat(600);
+  const p = tmpProject({ '..src/index.ts': 'export const x = 1;\n', 'sibling/huge.ts': big, 'package.json': { name: 'loc-dotdot', source: '..src/index.ts' } });
+  try {
+    try {
+      symlinkSync(p.dir, join(p.dir, '..src', 'up'), 'dir'); // ..src/up -> <repo root>
+    } catch {
+      return; // symlinks unsupported here
+    }
+    // Render check-loc for the `..src` scan root (planLoc sanitizes the entry to that dir).
+    const content = planLoc({ guardrails: { locGuard: true } }, { entry: '..src/index.ts' }).find((a) => a.path === 'scripts/check-loc.mjs').content;
+    mkdirSync(join(p.dir, 'scripts'), { recursive: true });
+    const script = join(p.dir, 'scripts', 'check-loc.mjs');
+    writeFileSync(script, content);
+    assert.doesNotThrow(() =>
+      execFileSync('node', [script, '--update'], { cwd: p.dir, stdio: 'ignore', timeout: 20_000 }),
+    );
+    const keys = Object.keys(JSON.parse(readFileSync(join(p.dir, 'scripts', 'loc-baseline.json'), 'utf8')).files);
+    assert.ok(!keys.some((k) => k.includes('huge.ts')), `sibling leaked via a ..src ancestor link: ${keys.join(', ')}`);
+  } finally {
+    p.cleanup();
+  }
+});
+
 test('generated check-loc walker skips a broken symlink without throwing', () => {
   const p = tmpProject({ 'src/index.ts': 'export const x = 1;\n', 'package.json': { name: 'loc-broken' } });
   try {

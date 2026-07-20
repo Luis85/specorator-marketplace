@@ -3,7 +3,7 @@
  * Files <= maxLoc are fine; grandfathered hotspots may shrink but not grow.
  * `--update` rewrites the baseline from the current state (use at adoption). */
 import { readdirSync, readFileSync, realpathSync, statSync, writeFileSync, existsSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
 const ROOT = process.cwd();
 const BASELINE = join(ROOT, 'scripts', 'loc-baseline.json');
@@ -30,10 +30,11 @@ function walk(dir, out = [], stack = new Set()) {
   }
   // A link to an ANCESTOR of the scan root (e.g. src/up -> ..) resolves to a dir that
   // CONTAINS src; descending it would climb out of the source root and scan unrelated
-  // siblings. Skip any dir that strictly contains SRC (relative(real, SRC) points DOWN,
-  // i.e. has no leading `..`, only for an ancestor; SRC itself gives '').
+  // siblings. `real` strictly contains SRC iff relative(real, SRC) is a non-empty DOWNWARD
+  // path — compared by `..` path SEGMENT (not string prefix, so a dir literally named
+  // `..src` isn't mistaken for `../`) and not an absolute cross-volume result.
   const rel = relative(real, SRC_REAL);
-  if (rel !== '' && !rel.startsWith('..')) return out;
+  if (rel !== '' && rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel)) return out;
   // `stack` is the ACTIVE traversal path (not a global visited set): a real dir already
   // on the current branch is a cycle -> stop. A real dir and an acyclic alias to it are
   // NOT on each other's active path, so BOTH are walked and recorded — the baseline
