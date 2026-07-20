@@ -216,6 +216,36 @@ test('detectEntry matches modern module extensions (.mts/.cts/.cjs)', () => {
   }
 });
 
+test('detect infers the test runner from a hand-written config when no dep is present', () => {
+  // A repo whose only runner signal is a hand-written config (the runner dep hoisted
+  // to a workspace root, or the config authored pre-install). Without inferring it,
+  // freezeOptions defaults to jest and planTest wires the coverage gate BESIDE the
+  // user's vitest.config instead of standing down — installing the wrong toolchain.
+  const vitestOnly = tmpProject({ 'vitest.config.ts': 'export default {};\n' });
+  const jestOnly = tmpProject({ 'jest.config.js': 'module.exports = {};\n' });
+  const neither = tmpProject({ 'package.json': { name: 'x' } });
+  try {
+    assert.equal(detect(vitestOnly.dir).testFramework, 'vitest');
+    assert.equal(detect(jestOnly.dir).testFramework, 'jest');
+    assert.equal(detect(neither.dir).testFramework, null); // no signal -> null (planners default to jest)
+  } finally {
+    vitestOnly.cleanup();
+    jestOnly.cleanup();
+    neither.cleanup();
+  }
+});
+
+test('detect prefers a dep over a config file for the runner (dep is the stronger signal)', () => {
+  // vitest dep present but a stale jest.config on disk: the dep wins, so the inference
+  // never overrides an installed runner.
+  const p = tmpProject({ 'package.json': { devDependencies: { vitest: '^2' } }, 'jest.config.js': 'module.exports = {};\n' });
+  try {
+    assert.equal(detect(p.dir).testFramework, 'vitest');
+  } finally {
+    p.cleanup();
+  }
+});
+
 test('detect flags an existing flat ESLint config in another extension', () => {
   const p = tmpProject({ 'eslint.config.js': 'export default [];\n' });
   try {

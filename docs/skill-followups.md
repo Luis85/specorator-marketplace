@@ -95,6 +95,18 @@ the catalog PR that publishes the skill.
   symlink, not a directory); the now-unused `statSync` import is dropped. (`check-loc.mjs.tmpl`,
   review `r3613860489`.)
 
+- [x] **9. `detect.mjs` — infer the test runner from a hand-written config file.**
+  `detect()` set `testFramework` from a `vitest`/`jest` dep only, so a repo whose only
+  runner signal was a hand-written `vitest.config.ts` (the dep hoisted to a workspace
+  root, or the config authored pre-install) reported `null`. `freezeOptions` then
+  defaulted it to `jest`, and `standsDownTestConfig` — checking `jestConfig` on the jest
+  path — did NOT stand down, so `planTest` wrote `jest.config.mjs` and installed
+  jest/ts-jest BESIDE the user's vitest config (the day-one gate ran the wrong runner).
+  The jest-config-only case worked only by luck of the `jest` default. Fix: fall back to
+  the config-FILE signals (`vitestConfig`/`jestConfig`, vitest first — mirroring the dep
+  precedence) when no dep is present; a dep still wins. (`detect.mjs`, surfaced by the
+  skill-hardening brownfield-detection sweep.)
+
 ## Open — gaps to close
 
 _All tracked gaps above are closed. New findings surfaced by later hardening passes are

@@ -162,7 +162,21 @@ export function detect(cwd) {
   const pkg = readJsonSafe(join(cwd, 'package.json')) ?? {};
   const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
   const has = (name) => Object.prototype.hasOwnProperty.call(deps, name);
-  const testFramework = has('vitest') ? 'vitest' : has('jest') ? 'jest' : null;
+  // Config-FILE signals (a hand-written jest/vitest config with no MARKER, see
+  // hasUnmarkedConfig). Computed up here so the runner inference can fall back to
+  // them: a repo whose only signal is a hand-written config — the runner dep hoisted
+  // to a workspace root, or the config authored before the first install — resolves
+  // the right runner instead of defaulting to jest (which would install the wrong
+  // toolchain BESIDE the user's config, since standsDownTestConfig then checks the
+  // wrong file). A dep is the stronger signal, so it still wins; among configs vitest
+  // wins, mirroring the dep precedence.
+  const jestConfigFile = hasUnmarkedConfig(cwd, JEST_CONFIGS) || pkg.jest != null;
+  const vitestConfigFile = hasUnmarkedConfig(cwd, VITEST_CONFIGS);
+  const testFramework = has('vitest') ? 'vitest'
+    : has('jest') ? 'jest'
+    : vitestConfigFile ? 'vitest'
+    : jestConfigFile ? 'jest'
+    : null;
   const entry = detectEntry(cwd);
   const entryExists = existsSync(join(cwd, entry));
   // A real source entry with a TS-family extension is a TypeScript project even
@@ -208,9 +222,10 @@ export function detect(cwd) {
     ciWorkflow: hasUnmarkedConfig(cwd, ['.github/workflows/ci.yml']),
     releaseWorkflow: hasUnmarkedConfig(cwd, ['.github/workflows/release.yml']),
     // Jest also reads a `jest` key in package.json — writing jest.config.mjs beside
-    // it makes Jest 30 error "Multiple configurations found".
-    jestConfig: hasUnmarkedConfig(cwd, JEST_CONFIGS) || pkg.jest != null,
-    vitestConfig: hasUnmarkedConfig(cwd, VITEST_CONFIGS),
+    // it makes Jest 30 error "Multiple configurations found". (Same booleans the
+    // runner inference above used.)
+    jestConfig: jestConfigFile,
+    vitestConfig: vitestConfigFile,
     viteConfig: existsAny(cwd, VITE_CONFIGS),
     // Existing .claude/settings.json (Claude Code hooks + permissions), so
     // planClaudeSettings can reconcile OUR engine-owned hook group on re-apply
