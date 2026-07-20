@@ -717,7 +717,7 @@ function planProjectDocs(options, state) {
   return actions;
 }
 
-function planPackageBasics(options, version, fresh) {
+function planPackageBasics(options, version, fresh, forceVersion) {
   const o = options.obsidian;
   const scripts = {
     dev: 'node esbuild.config.mjs',
@@ -742,15 +742,20 @@ function planPackageBasics(options, version, fresh) {
     devDependencies: dep('obsidian', '@codemirror/view', '@codemirror/state', 'esbuild', 'typescript', ...(o.vue ? ['unplugin-vue', 'vue-tsc'] : [])),
   };
   if (o.vue) patch.dependencies = dep('vue', 'pinia', 'vue-router');
-  // `version` and `main` are always engine-owned: version syncs to the manifest
-  // (so an npm-init 1.0.0 default is normalized and package/manifest never desync
-  // for check:artifacts), and an Obsidian plugin's entry is always the esbuild
-  // `main.js` the manifest points at — a stale `index.js` from `npm init` must not
-  // survive. On the INITIAL scaffold, `name`/`description` are forced too so
-  // npm-init defaults (the directory name, an empty description) don't shadow the
-  // selected plugin identity; on RE-APPLY they stay merge-kept so a user's later
-  // edits aren't clobbered.
-  const force = fresh ? ['version', 'main', 'name', 'description'] : ['version', 'main'];
+  // `main` is always engine-owned (the esbuild `main.js` the manifest points at — a
+  // stale `index.js` from `npm init` must not survive). `version` is engine-owned only
+  // when we KNOW the target (`forceVersion`): a fresh scaffold's INITIAL_VERSION or a
+  // manifest with a valid version to sync to — so an npm-init 1.0.0 default is
+  // normalized and package/manifest never desync for check:artifacts. When the manifest
+  // exists but is versionless (forceVersion false), the existing package.json version is
+  // merge-kept, not clobbered with the fallback. On the INITIAL scaffold, `name`/
+  // `description` are forced too so npm-init defaults don't shadow the selected identity;
+  // on RE-APPLY they stay merge-kept so a user's later edits aren't clobbered.
+  const force = [
+    ...(forceVersion ? ['version'] : []),
+    'main',
+    ...(fresh ? ['name', 'description'] : []),
+  ];
   return [{ type: 'mergeJson', path: 'package.json', patch, force }];
 }
 
@@ -767,9 +772,15 @@ export function planObsidian(options, state = {}) {
   // key on existence, not the parsed version, so an unparseable manifest doesn't
   // masquerade as fresh and clobber an existing package.json identity.
   const fresh = !state.manifestExists;
+  // Force package.json's version only when the target is KNOWN: a fresh scaffold
+  // (INITIAL_VERSION) or a manifest carrying a valid version to sync to. If the manifest
+  // exists but is malformed/versionless (manifestVersion null), forcing would overwrite a
+  // valid package.json version with the 0.1.0 fallback while skip-if-exists preserves the
+  // broken manifest — desyncing them and failing check:artifacts. Preserve it instead.
+  const forceVersion = fresh || state.manifestVersion != null;
   return [
     ...planManifest(options.obsidian, version),
-    ...planPackageBasics(options, version, fresh),
+    ...planPackageBasics(options, version, fresh, forceVersion),
     ...planBuild(options),
     ...planSources(options),
     ...planTsconfig(options),

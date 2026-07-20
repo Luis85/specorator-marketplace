@@ -741,12 +741,14 @@ test('the initial scaffold forces the plugin identity (name/description/main) ov
   assert.deepEqual([...reapply.force].sort(), ['main', 'version']);
 });
 
-test('a re-apply onto a malformed manifest (exists but unparseable version) is NOT treated as fresh', () => {
-  // manifestExists true + manifestVersion null (bad/missing version) is still a
-  // re-apply: forcing name/description would clobber the user's package.json
-  // identity even though the manifest is kept by skip-if-exists. Key on existence.
+test('a re-apply onto a malformed manifest (exists but versionless) forces neither identity nor version', () => {
+  // manifestExists true + manifestVersion null (bad/missing version) is a re-apply, so
+  // name/description stay merge-kept (the user's identity survives). Version is ALSO
+  // merge-kept: there's no manifest version to sync to, and forcing the 0.1.0 fallback
+  // would clobber a valid package.json version while skip-if-exists preserves the broken
+  // manifest — desyncing them. Only `main` (always the esbuild main.js) is forced.
   const merge = findMerge(actionsFor({}, { manifestExists: true, manifestVersion: null }), 'package.json');
-  assert.deepEqual([...merge.force].sort(), ['main', 'version']); // name/description NOT forced
+  assert.deepEqual([...merge.force].sort(), ['main']); // neither name/description NOR version forced
 });
 
 test('the src safety/mobile lint globs include JS and module extensions (an adopted JS/module plugin is linted)', () => {

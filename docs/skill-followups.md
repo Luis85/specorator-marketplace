@@ -30,7 +30,7 @@ so fixes land here.
   marker is still written, so the floor stays at zero and later applies skip
   re-baselining forever. Fix: write the marker only when `updated === true`.
 
-- [ ] **3. `obsidian.mjs` — don't clobber the package version on a malformed manifest.**
+- [x] **3. `obsidian.mjs` — don't clobber the package version on a malformed manifest.**
   When `manifest.json` exists but is malformed/versionless
   (`manifestExists: true`, `manifestVersion: null`), `planObsidian` forces
   `version` to the `0.1.0` fallback, overwriting a valid `package.json` version
