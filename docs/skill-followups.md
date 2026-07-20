@@ -2,7 +2,7 @@
 title: project-setup skill — follow-up backlog
 date: 2026-07-20
 updated: 2026-07-20
-status: in-progress
+status: done
 scope: skills/project-setup
 ---
 
@@ -85,17 +85,20 @@ the catalog PR that publishes the skill.
   `src/`-scoped layout keeps these outside `src/` and needs none. (`harness.mjs`,
   review `r3613738207`.)
 
+- [x] **8. `check-loc.mjs.tmpl` — skip symlinked directories in the LOC walker.**
+  `walk()` used `statSync(...).isDirectory()`, which **follows** symlinks: a directory
+  symlink to an ancestor made it recurse the same tree until Node threw `ELOOP`, and a
+  broken symlink threw immediately. Because initial apply runs the generated script
+  with `--update`, such a repo couldn't finish setup or pass `check:loc`. Fix: walk with
+  `readdirSync(..., { withFileTypes: true })` and skip any entry whose dirent
+  `isSymbolicLink()` (the dirent type isn't dereferenced, so a symlinked dir reads as a
+  symlink, not a directory); the now-unused `statSync` import is dropped. (`check-loc.mjs.tmpl`,
+  review `r3613860489`.)
+
 ## Open — gaps to close
 
-- [ ] **8. `check-loc.mjs.tmpl` — skip symlinked directories in the LOC walker.**
-  `walk()` uses `statSync(...).isDirectory()`, which **follows** symlinks: a directory
-  symlink to an ancestor makes it recurse the same tree until Node throws `ELOOP`, and
-  a broken symlink throws immediately. Because initial apply runs the generated script
-  with `--update`, such a repo can't finish setup or pass `check:loc`. Fix: use
-  `lstatSync`/`readdirSync(..., { withFileTypes: true })` to skip symlinked entries, or
-  track visited real paths before recursing. Test: `walk()` over a tree containing a
-  self-referential dir symlink terminates without throwing. (`check-loc.mjs.tmpl:21`,
-  review `r3613860489`.)
+_All tracked gaps above are closed. New findings surfaced by later hardening passes are
+appended here (with file, review, and the fix + test to add) before they're worked._
 
 ## Considered — declined
 
