@@ -20,10 +20,15 @@ const BUILD_DIRS = new Set(['dist', 'build', 'out', 'esm', 'cjs', 'umd', 'lib-es
 
 export function detectEntry(cwd) {
   const pkg = readJsonSafe(join(cwd, 'package.json'));
-  // Normalize a leading ./ or / so roots derive correctly and the entry stays
-  // project-relative: a leading-slash "source":"/src/main.ts" would otherwise be
-  // returned verbatim and become an absolute esbuild/fallow target at the FS root.
-  const strip = (p) => p.replace(/^\.?\/+/, '');
+  // Normalize backslash separators, then a leading ./ or /, so roots derive correctly
+  // and the entry stays project-relative. Two reasons: (1) a leading-slash
+  // "source":"/src/main.ts" would otherwise be returned verbatim and become an absolute
+  // esbuild/fallow target at the FS root; (2) package.json path fields may use `\` on
+  // Windows, and the downstream build-dir check (split on `/`) + entryDir (harness)
+  // would then mis-classify `dist\index.js` as source or collapse a `src\app.ts` scan
+  // root to the whole repo. `/` is the package.json convention on every platform, so
+  // normalizing `\`->`/` is safe and platform-independent.
+  const strip = (p) => p.replace(/\\/g, '/').replace(/^\.?\/+/, '');
   // A package.json path field is untrusted: confirm it RESOLVES to a location
   // beneath cwd so a crafted `source`/`main`/`module` can't make the generated
   // build bundle — or the ratchets scan — files outside the project. Checking the

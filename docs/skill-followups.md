@@ -117,6 +117,17 @@ the catalog PR that publishes the skill.
   `manifest.json`) or when it still exists; a re-apply with the beta file gone leaves the
   opt-out intact. (`detect.mjs` + `obsidian.mjs`, surfaced by the idempotent-re-apply sweep.)
 
+- [x] **11. `detect.mjs` — normalize backslash separators in package.json path fields.**
+  `detectEntry`'s `strip` normalized a leading `./` or `/` but not backslashes, while the
+  downstream build-dir guard (`p.split('/')[0]`) and `entryDir` (harness) split on `/`
+  only. So a Windows package.json with `"main": "dist\\index.js"` evaded the build-output
+  skip (returned as the *source* entry), and `"source": "src\\app.ts"` collapsed the LOC
+  and coverage scan root to the whole repo (`entryDir` → `null`). Fix: normalize `\`→`/`
+  in `strip` (the single point every `source`/`main`/`module` field flows through) — `/`
+  is the package.json convention on every platform, so it's safe and platform-independent,
+  and it also makes a backslash `..\shared` escape resolve out of the project and be
+  rejected by `withinProject`. (`detect.mjs`, surfaced by the cross-platform-path sweep.)
+
 ## Open — gaps to close
 
 _All tracked gaps above are closed. New findings surfaced by later hardening passes are

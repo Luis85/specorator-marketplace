@@ -186,6 +186,22 @@ test('detectEntry strips a leading ./ and still skips ./dist build paths', () =>
   }
 });
 
+test('detectEntry normalizes backslash separators in a package.json path field (cross-platform)', () => {
+  // package.json path fields may legally use backslashes on Windows, but the build-dir
+  // guard and entryDir (harness) split on `/` only — so a `\`-separated source would be
+  // mis-scoped (scan root collapsed to the repo) or mis-classified (build output not
+  // skipped). `/` is the package.json convention everywhere, so `\` normalizes to `/`.
+  const nested = tmpProject({ 'package.json': { source: 'app\\core.ts' }, 'app/core.ts': '' });
+  const build = tmpProject({ 'package.json': { main: 'build\\out.js' }, 'build/out.js': '' }); // no src fallback candidate
+  try {
+    assert.equal(detectEntry(nested.dir), 'app/core.ts'); // normalized + honored, not the src/index.ts fallback
+    assert.equal(detectEntry(build.dir), 'src/index.ts'); // build\out.js recognized as build output -> skipped
+  } finally {
+    nested.cleanup();
+    build.cleanup();
+  }
+});
+
 test('detectEntry finds a lib/ entry (expanded source-dir candidates)', () => {
   const p = tmpProject({ 'lib/index.ts': '' });
   try {
