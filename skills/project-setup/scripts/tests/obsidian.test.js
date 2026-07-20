@@ -339,6 +339,18 @@ test('manifest-beta.json ships mirroring manifest.json (BRAT-ready), and the pub
   assert.match(pub.content, /obsidian-releases/);
 });
 
+test('planObsidian does not resurrect a deleted manifest-beta.json on re-apply', () => {
+  // Deleting manifest-beta.json is a documented BRAT opt-out (sync-version keeps it only
+  // when present). A skip-if-exists write can't tell "user deleted it" from "never
+  // existed", so on a re-apply (manifest.json present) it must NOT be recreated.
+  assert.ok(findWrite(actionsFor({}, {}), 'manifest-beta.json')); // greenfield: both manifests written
+  const deleted = actionsFor({}, { manifestExists: true, manifestVersion: '0.2.0', manifestBetaExists: false });
+  assert.equal(findWrite(deleted, 'manifest-beta.json'), undefined); // opt-out preserved
+  assert.ok(findWrite(deleted, 'manifest.json')); // the stable manifest is still written (skip-if-exists)
+  // Beta still present on re-apply -> still emitted (apply() no-ops on content match).
+  assert.ok(findWrite(actionsFor({}, { manifestExists: true, manifestBetaExists: true }), 'manifest-beta.json'));
+});
+
 test('npm version delegates to sync-version.mjs, which stages the beta manifest only when present', () => {
   // The version script runs sync-version (no inline `git add`); sync-version stages
   // exactly the files it wrote, so a user who deleted manifest-beta.json can still

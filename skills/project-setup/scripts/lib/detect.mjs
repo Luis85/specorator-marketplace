@@ -237,6 +237,11 @@ export function detect(cwd) {
     // (not a fresh scaffold), so the obsidian planner must not force-overwrite an
     // existing package.json identity just because the version couldn't be parsed.
     manifestExists: existsSync(join(cwd, 'manifest.json')),
+    // manifest-beta.json (BRAT beta channel) existence, tracked separately: deleting
+    // it is a documented opt-out (sync-version stages it only when present), so a
+    // re-apply must not resurrect it — obsidian's planManifest keys the beta write on
+    // this (a skip-if-exists write alone can't tell "deleted" from "never existed").
+    manifestBetaExists: existsSync(join(cwd, 'manifest-beta.json')),
     // The existing manifest's version (the manifest owns the plugin version). On a
     // re-apply after `npm version`, this keeps package.json synced to it instead of
     // being reset to the initial constant (which would desync check:artifacts).

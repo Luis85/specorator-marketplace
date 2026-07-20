@@ -78,7 +78,7 @@ export function obsidianEntry() {
   return 'src/main.ts';
 }
 
-function planManifest(o, version) {
+function planManifest(o, version, writeBeta = true) {
   const authorUrlLine = o.authorUrl ? `\n  "authorUrl": ${JSON.stringify(o.authorUrl)},` : '';
   const manifest = renderTemplate(loadTemplate('obsidian/manifest.json.tmpl'), {
     idJson: JSON.stringify(o.id),
@@ -94,8 +94,11 @@ function planManifest(o, version) {
     write('manifest.json', manifest),
     // manifest-beta.json mirrors manifest.json for BRAT beta installs; sync-version
     // keeps it in lockstep (see docs/publishing.md for running a beta channel ahead
-    // of stable). A fresh scaffold mirrors it byte-for-byte at creation.
-    write('manifest-beta.json', manifest),
+    // of stable). A fresh scaffold mirrors it byte-for-byte at creation. On re-apply
+    // it's emitted ONLY when it still exists: deleting it is a documented BRAT opt-out,
+    // and skip-if-exists can't tell "deleted" from "never existed", so writeBeta=false
+    // (a re-apply with no beta file) leaves the opt-out intact instead of resurrecting it.
+    ...(writeBeta ? [write('manifest-beta.json', manifest)] : []),
     { type: 'writeFile', path: 'versions.json', mode: 'skip-if-exists', content: `{\n  "${version}": "${o.minAppVersion}"\n}\n` },
   ];
 }
@@ -778,8 +781,12 @@ export function planObsidian(options, state = {}) {
   // valid package.json version with the 0.1.0 fallback while skip-if-exists preserves the
   // broken manifest — desyncing them and failing check:artifacts. Preserve it instead.
   const forceVersion = fresh || state.manifestVersion != null;
+  // Write manifest-beta.json on a fresh scaffold, or on a re-apply where it still
+  // exists. If it's a re-apply (manifest.json present) and the beta file is gone, the
+  // user deleted it to opt out of the BRAT beta channel — don't resurrect it.
+  const writeBeta = fresh || Boolean(state.manifestBetaExists);
   return [
-    ...planManifest(options.obsidian, version),
+    ...planManifest(options.obsidian, version, writeBeta),
     ...planPackageBasics(options, version, fresh, forceVersion),
     ...planBuild(options),
     ...planSources(options),

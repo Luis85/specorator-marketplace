@@ -107,6 +107,16 @@ the catalog PR that publishes the skill.
   precedence) when no dep is present; a dep still wins. (`detect.mjs`, surfaced by the
   skill-hardening brownfield-detection sweep.)
 
+- [x] **10. `obsidian.mjs` — don't resurrect a deleted `manifest-beta.json` on re-apply.**
+  `planManifest` wrote `manifest-beta.json` (BRAT beta channel) with `skip-if-exists`.
+  Deleting that file is a *documented* opt-out — the generated `sync-version.mjs` stages
+  it only when present so a user who removed it can still cut a release — but a
+  `skip-if-exists` write can't tell "deleted" from "never existed", so the next `apply`
+  recreated it (reported as a change), undoing the opt-out. Fix: detect
+  `manifestBetaExists` and write the beta manifest only on a fresh scaffold (no
+  `manifest.json`) or when it still exists; a re-apply with the beta file gone leaves the
+  opt-out intact. (`detect.mjs` + `obsidian.mjs`, surfaced by the idempotent-re-apply sweep.)
+
 ## Open — gaps to close
 
 _All tracked gaps above are closed. New findings surfaced by later hardening passes are
