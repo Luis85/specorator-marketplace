@@ -139,10 +139,43 @@ export function parseVersion(raw) {
 }
 
 /**
+ * Every file under a skill folder as repo-relative POSIX paths (forward slashes),
+ * depth-first with each directory level sorted by name — deterministic across
+ * platforms. A skill is multi-file: its `SKILL.md` plus any supporting
+ * `references/`, `scripts/`, or templates it ships. The manifest lists them all
+ * so the plugin can fetch and install the whole folder, not just the `SKILL.md`.
+ * Only regular files are listed (symlinks and sockets are skipped).
+ */
+export function listSkillFiles(root, skillRelDir) {
+  const files = [];
+  const walk = (relDir) => {
+    const dirents = readdirSync(join(root, relDir), { withFileTypes: true });
+    dirents.sort((a, b) => a.name.localeCompare(b.name));
+    for (const dirent of dirents) {
+      const rel = `${relDir}/${dirent.name}`;
+      if (dirent.isDirectory()) {
+        // A skill's own behavioral test suite lives at `scripts/tests/` — a dev
+        // artifact that gates the scripts in CI but is never installed, so it's
+        // kept out of the distributed manifest. Only this exact skill-relative
+        // path is skipped: scaffolding the skill SHIPS (anything under
+        // `templates/`, including template `tests/` dirs) is unaffected.
+        if (rel.slice(skillRelDir.length + 1) === 'scripts/tests') continue;
+        walk(rel);
+      } else if (dirent.isFile()) {
+        files.push(rel);
+      }
+    }
+  };
+  walk(skillRelDir);
+  return files;
+}
+
+/**
  * Walks the category folders and returns one raw entry per item:
- * `{ folder, type, typeMarker, file, slug, path, frontmatter, body }`.
- * Handles the `skills/<name>/SKILL.md` subfolder layout. Deterministic order
- * (CATEGORIES order, then filename).
+ * `{ folder, type, typeMarker, file, slug, path, frontmatter, body }` (skills
+ * additionally carry `files` — every file in the skill folder). Handles the
+ * `skills/<name>/SKILL.md` subfolder layout. Deterministic order (CATEGORIES
+ * order, then filename).
  */
 export function readCatalogFiles(root) {
   const entries = [];
@@ -168,6 +201,7 @@ export function readCatalogFiles(root) {
         entries.push({
           folder, type, typeMarker, file: 'SKILL.md', slug: dirent.name,
           path: `${folder}/${dirent.name}/SKILL.md`, frontmatter, body,
+          files: listSkillFiles(root, `${folder}/${dirent.name}`),
         });
       }
       continue;
@@ -196,6 +230,10 @@ export function buildItem(entry) {
     path: entry.path,
     tags: toList(fm.tags),
   };
+  // Skills are multi-file: publish every file in the folder so the plugin can
+  // install the whole skill, not just its SKILL.md. Repo-relative POSIX paths,
+  // deterministic order (see listSkillFiles). Omitted for single-file types.
+  if (entry.type === 'skill' && Array.isArray(entry.files)) item.files = entry.files;
   if (fm.icon) item.icon = fm.icon;
   if (fm.roles) item.roles = toList(fm.roles);
   if (fm.priority) item.priority = fm.priority;
@@ -297,6 +335,30 @@ export function validateCatalog(root) {
     } else if (type === 'skill') {
       if (!nonEmptyString(fm.name)) err('skill SKILL.md missing `name`');
       if (!entry.body.trim()) err('skill SKILL.md body is empty');
+      // Skills are text-only: the plugin fetches every file as text and writes
+      // it back as UTF-8, so a binary asset would be silently corrupted on
+      // install. Flag any file with a NUL byte (the standard binary heuristic).
+      for (const rel of entry.files ?? []) {
+        let buf;
+        try {
+          buf = readFileSync(join(root, rel));
+        } catch {
+          continue; // unreadable is caught elsewhere
+        }
+        if (buf.includes(0)) {
+          err(`skill file "${rel}" is binary (contains a NUL byte); marketplace skills must be text-only`);
+          continue;
+        }
+        // Beyond the NUL heuristic, reject invalid UTF-8: the plugin decodes each
+        // file as UTF-8 text and writes it back, so a NUL-free binary (e.g. a JPEG
+        // starting `ff d8 ff`) would be corrupted into replacement characters. A
+        // strict (fatal) decode throws on any invalid byte sequence.
+        try {
+          new TextDecoder('utf-8', { fatal: true }).decode(buf);
+        } catch {
+          err(`skill file "${rel}" is not valid UTF-8 text; marketplace skills must be text-only`);
+        }
+      }
     }
 
     if (fm.source && !/^https:\/\//.test(String(fm.source))) warn('`source` should be an https:// URL');

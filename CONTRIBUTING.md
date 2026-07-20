@@ -151,8 +151,20 @@ You review changes with technical rigor. …
 ### Skills — `skills/<skill-name>/SKILL.md`
 
 See [`skills/README.md`](skills/README.md). `<skill-name>` must equal the folder name and the
-frontmatter `name`. The `description` is the dispatch trigger (third person, leads with
-"Use when …").
+frontmatter `name` (lowercase-hyphen — it is also the skill's id). The `description` is the
+dispatch trigger (third person, leads with "Use when …").
+
+Skills are **multi-file**: `build-index.mjs` records every file in the folder as the item's
+`files` array (repo-relative, `SKILL.md` included), and the plugin installs the whole folder
+under `<skill-root>/<skill-name>/`. So ship the supporting `references/`/`scripts/`/templates the
+skill needs at runtime, and **exclude** anything that is only for developing the skill (its own
+test suite, scratch notes) — those would otherwise land in every installing user's vault. The
+plugin installer chooses the provider root (Claude / Codex / Cursor) and scope (project / user) at
+install time, so the skill folder itself carries no provider- or scope-specific paths.
+
+Skills are **text-only**. The plugin fetches each file as text and writes it back as UTF-8, so a
+binary asset (image, font, archive, …) would be silently corrupted on install — `validate:strict`
+rejects any skill file containing a NUL byte. Keep skills to `SKILL.md` plus text supporting files.
 
 ## Before you open a PR
 

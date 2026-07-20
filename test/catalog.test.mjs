@@ -15,6 +15,7 @@ import {
   collectItems,
   buildManifest,
   validateCatalog,
+  listSkillFiles,
 } from '../scripts/lib/catalog.mjs';
 
 // --- pure helpers -----------------------------------------------------------
@@ -264,6 +265,111 @@ test('validateCatalog accepts a well-formed skill folder', () => {
   const { errors, warnings } = validateFixture({ 'skills/my-skill/SKILL.md': validSkill });
   assert.deepEqual(errors, []);
   assert.deepEqual(warnings, []);
+});
+
+test('collectItems lists every file in a multi-file skill folder (SKILL.md + supporting files, all under the folder)', () => {
+  const skill = ['---', 'name: multi', 'description: "Use when x."', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'body'].join('\n');
+  const root = makeCatalog({
+    'skills/multi/SKILL.md': skill,
+    'skills/multi/references/a.md': 'a',
+    'skills/multi/scripts/run.mjs': 'export const x = 1;',
+    'skills/multi/scripts/lib/dep.mjs': 'export const y = 2;',
+  });
+  try {
+    const item = collectItems(root).find((i) => i.id === 'skills/multi');
+    assert.ok(item, 'skill item present');
+    // The whole folder ships, not just SKILL.md. Assert the SET (sorted) so the
+    // test doesn't couple to locale-specific ordering of the deterministic walk.
+    assert.deepEqual([...item.files].sort(), [
+      'skills/multi/SKILL.md',
+      'skills/multi/references/a.md',
+      'skills/multi/scripts/lib/dep.mjs',
+      'skills/multi/scripts/run.mjs',
+    ]);
+    assert.ok(item.files.includes('skills/multi/SKILL.md'), 'SKILL.md included');
+    assert.ok(item.files.every((f) => f.startsWith('skills/multi/')), 'every file stays under the skill folder');
+    // Deterministic: same input → identical order (drives check:index freshness).
+    const again = collectItems(root).find((i) => i.id === 'skills/multi');
+    assert.deepEqual(again.files, item.files);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('listSkillFiles walks depth-first, lists only files, and skips the README housekeeping is caller-side', () => {
+  const root = makeCatalog({
+    'skills/s/SKILL.md': 'x',
+    'skills/s/nested/deep/f.txt': 'y',
+  });
+  try {
+    const files = listSkillFiles(root, 'skills/s');
+    assert.deepEqual([...files].sort(), ['skills/s/SKILL.md', 'skills/s/nested/deep/f.txt']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("listSkillFiles excludes the skill's own scripts/tests suite but keeps shipped template tests", () => {
+  const root = makeCatalog({
+    'skills/s/SKILL.md': 'x',
+    'skills/s/scripts/setup.mjs': 'code',
+    'skills/s/scripts/tests/setup.test.js': 'dev-only', // skill's own suite → not distributed
+    'skills/s/scripts/tests/helpers.js': 'dev-only', // support file in the suite → not distributed
+    'skills/s/scripts/templates/app/tests/x.test.ts.tmpl': 'scaffolding', // shipped in the skill
+  });
+  try {
+    const files = listSkillFiles(root, 'skills/s');
+    assert.deepEqual([...files].sort(), [
+      'skills/s/SKILL.md',
+      'skills/s/scripts/setup.mjs',
+      'skills/s/scripts/templates/app/tests/x.test.ts.tmpl',
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('buildItem includes files for skills and omits them for single-file types', () => {
+  const skillItem = buildItem({
+    folder: 'skills', type: 'skill', slug: 'multi', path: 'skills/multi/SKILL.md',
+    frontmatter: { name: 'multi', description: 'd', tags: ['x'] }, body: 'b',
+    files: ['skills/multi/SKILL.md', 'skills/multi/a.md'],
+  });
+  assert.deepEqual(skillItem.files, ['skills/multi/SKILL.md', 'skills/multi/a.md']);
+
+  const loopItem = buildItem({
+    folder: 'loops', type: 'loop', slug: 'x', path: 'loops/x.md',
+    frontmatter: { name: 'X', description: 'd', tags: ['a'] }, body: '',
+    files: ['loops/x.md'], // present on the entry but a non-skill type must not publish it
+  });
+  assert.equal('files' in loopItem, false);
+});
+
+test('validateCatalog flags a binary file in a skill folder (skills are text-only)', () => {
+  const skill = ['---', 'name: my-skill', 'description: "Use when x."', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'body'].join('\n');
+  const root = makeCatalog({ 'skills/my-skill/SKILL.md': skill });
+  try {
+    // A PNG-signature file with a NUL byte — the plugin's text fetch would corrupt it.
+    writeFileSync(join(root, 'skills/my-skill/logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x0a]));
+    const { errors } = validateCatalog(root);
+    assert.ok(has(errors, /logo\.png.*binary.*text-only/), `expected binary error, got: ${errors.join('; ')}`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('validateCatalog flags a NUL-free but invalid-UTF-8 skill file (strict text-only)', () => {
+  const skill = ['---', 'name: my-skill', 'description: "Use when x."', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'body'].join('\n');
+  const root = makeCatalog({ 'skills/my-skill/SKILL.md': skill });
+  try {
+    // JPEG signature bytes: no NUL (so the NUL heuristic passes), but 0xff is not a
+    // valid UTF-8 start byte, so a strict decode rejects it.
+    writeFileSync(join(root, 'skills/my-skill/photo.dat'), Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+    const { errors } = validateCatalog(root);
+    assert.ok(has(errors, /photo\.dat.*UTF-8.*text-only/), `expected UTF-8 error, got: ${errors.join('; ')}`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('validateCatalog errors on a skill folder with a mis-cased/missing SKILL.md', () => {

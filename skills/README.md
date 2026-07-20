@@ -6,22 +6,30 @@ trigger matches) that a Specorator user can install into their vault's skill roo
 
 ## Status
 
-This category is **scaffolded but empty**. The Specorator plugin ships no bundled
-_starter_ skills today (unlike Loops, Agents, and Work-Order Templates, which have
-compiled-in preset sets that seeded the other folders), so there is nothing to port in
-this first pass. It is ready for curated contributions.
+**Live** — the first skill, [`project-setup/`](project-setup/), is published, and the in-plugin
+Marketplace installs skills with a **provider** (Claude / Codex / Cursor) and **scope** (project
+vault or user home) chooser. Ready for more curated contributions.
 
 ## Format (when adding a skill)
 
-Each skill is a folder containing a `SKILL.md`, mirroring the Claude Code / Codex skill
-layout so an installed skill is indistinguishable from a hand-authored one:
+Each skill is a folder containing a `SKILL.md`, mirroring the Claude Code / Codex / Cursor skill
+layout so an installed skill is indistinguishable from a hand-authored one. Skills are
+**multi-file**: the whole folder ships, so a skill can carry the supporting `references/`,
+`scripts/`, or templates its `SKILL.md` points at:
 
 ```
 skills/
   <skill-name>/
     SKILL.md            # required
-    reference.md        # optional supporting files the skill points at
+    references/*.md     # optional supporting docs the skill points at
+    scripts/**          # optional engine/helpers the skill invokes
 ```
+
+`node scripts/build-index.mjs` walks the folder and records every file in the skill's
+`index.json` entry as a `files` array (repo-relative paths, `SKILL.md` included). The plugin
+fetches each of those on install and writes them under `<skill-root>/<skill-name>/`, preserving
+the subfolder layout. Keep the folder to what the skill needs **at runtime** — exclude a skill's
+own dev-only tests or scratch files so users don't get them in their vault.
 
 `SKILL.md` frontmatter:
 
@@ -40,6 +48,10 @@ version: 1
 
 Concise, imperative instructions — the reusable "how", not a one-off command.
 ```
+
+Skills must be **text-only** (`SKILL.md` plus text supporting files). The plugin fetches
+each file as text, so a binary asset would be corrupted on install; `validate:strict` rejects
+any skill file containing a NUL byte.
 
 See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the review bar and the `index.json`
 manifest rules. Run `node scripts/build-index.mjs` after adding a skill so the manifest
