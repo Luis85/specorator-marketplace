@@ -55,11 +55,14 @@ export function initBaselines(cwd, options, exec = defaultExec, changed = []) {
     // The test runner IS the user-facing npm script (jest/vitest), so run it via PM.
     const [cmd, cargs] = runScriptArgs(pm, 'test:coverage');
     exec(cmd, cargs, { cwd });
-    applyCoverageFloor(cwd, options.testFramework ?? 'jest'); // floor = current (rise-only)
+    const floor = applyCoverageFloor(cwd, options.testFramework ?? 'jest'); // floor = current (rise-only)
     // Leave the tree coverage-absent (the state CI uses) so the immediate local
     // check:quality can't disagree with the static_estimated baseline.
     rmSync(join(cwd, 'coverage'), { recursive: true, force: true });
-    // Mark baselined (a 0% floor counts) so a later apply doesn't re-measure/raise it.
-    markCoverageBaselined(cwd);
+    // Mark baselined (a 0% floor counts) so a later apply doesn't re-measure/raise it —
+    // but NOT when the runner produced no summary/config: no floor was established, so
+    // marking would freeze it at zero and block a re-baseline after `test:coverage` is
+    // fixed. An applied or already-present floor still marks.
+    if (floor.reason !== 'no summary/config') markCoverageBaselined(cwd);
   }
 }

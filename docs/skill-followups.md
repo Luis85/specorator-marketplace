@@ -25,7 +25,7 @@ so fixes land here.
   value wins over a later explicit change), mirroring the structural Obsidian
   choices.
 
-- [ ] **2. `baseline.mjs` — only mark `.coverage-baselined` when a floor was applied.**
+- [x] **2. `baseline.mjs` — only mark `.coverage-baselined` when a floor was applied.**
   When `applyCoverageFloor` returns `{ updated: false }` (no summary/config) the
   marker is still written, so the floor stays at zero and later applies skip
   re-baselining forever. Fix: write the marker only when `updated === true`.
