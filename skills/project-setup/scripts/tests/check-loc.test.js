@@ -61,3 +61,44 @@ test('generated check-loc walker still recurses real subdirectories', () => {
     p.cleanup();
   }
 });
+
+test('generated check-loc walker counts an acyclic symlinked source file (only cycles/broken links are skipped)', () => {
+  // A symlinked SOURCE FILE under the scan root is real source the build/test tooling
+  // consumes, so the LOC guard must still count it — skipping ALL symlinks would let an
+  // oversized src/shared.ts slip the guard entirely. Only cyclic dir links / broken
+  // links are dropped.
+  const big = 'x\n'.repeat(600); // 600 non-blank lines > MAX_LOC 500
+  const p = tmpProject({ 'src/index.ts': 'export const x = 1;\n', 'vendored/big.ts': big, 'package.json': { name: 'loc-filelink' } });
+  try {
+    try {
+      symlinkSync(join(p.dir, 'vendored', 'big.ts'), join(p.dir, 'src', 'shared.ts'), 'file');
+    } catch {
+      return; // symlinks unsupported here
+    }
+    const script = renderCheckLoc(p.dir);
+    execFileSync('node', [script, '--update'], { cwd: p.dir, stdio: 'ignore', timeout: 20_000 });
+    const baseline = JSON.parse(readFileSync(join(p.dir, 'scripts', 'loc-baseline.json'), 'utf8'));
+    assert.equal(baseline.files['src/shared.ts'], 600); // the symlinked source was counted
+  } finally {
+    p.cleanup();
+  }
+});
+
+test('generated check-loc walker skips a broken symlink without throwing', () => {
+  const p = tmpProject({ 'src/index.ts': 'export const x = 1;\n', 'package.json': { name: 'loc-broken' } });
+  try {
+    try {
+      symlinkSync(join(p.dir, 'src', 'nonexistent.ts'), join(p.dir, 'src', 'dangling.ts'), 'file');
+    } catch {
+      return; // symlinks unsupported here
+    }
+    const script = renderCheckLoc(p.dir);
+    assert.doesNotThrow(() =>
+      execFileSync('node', [script, '--update'], { cwd: p.dir, stdio: 'ignore', timeout: 20_000 }),
+    );
+    const baseline = JSON.parse(readFileSync(join(p.dir, 'scripts', 'loc-baseline.json'), 'utf8'));
+    assert.equal('src/dangling.ts' in baseline.files, false); // a dangling link is not counted (or crashed)
+  } finally {
+    p.cleanup();
+  }
+});

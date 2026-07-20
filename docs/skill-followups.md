@@ -86,15 +86,17 @@ the catalog PR that publishes the skill.
   dir, and coverage output; a `src/`-scoped layout keeps these outside `src/` and needs
   none. (`harness.mjs`, review `r3613738207` + Codex PR review on the root-scope.)
 
-- [x] **8. `check-loc.mjs.tmpl` — skip symlinked directories in the LOC walker.**
+- [x] **8. `check-loc.mjs.tmpl` — don't crash (or over-skip) on symlinks in the LOC walker.**
   `walk()` used `statSync(...).isDirectory()`, which **follows** symlinks: a directory
   symlink to an ancestor made it recurse the same tree until Node threw `ELOOP`, and a
-  broken symlink threw immediately. Because initial apply runs the generated script
-  with `--update`, such a repo couldn't finish setup or pass `check:loc`. Fix: walk with
-  `readdirSync(..., { withFileTypes: true })` and skip any entry whose dirent
-  `isSymbolicLink()` (the dirent type isn't dereferenced, so a symlinked dir reads as a
-  symlink, not a directory); the now-unused `statSync` import is dropped. (`check-loc.mjs.tmpl`,
-  review `r3613860489`.)
+  broken symlink threw immediately. Because initial apply runs the generated script with
+  `--update`, such a repo couldn't finish setup or pass `check:loc`. Fix: walk with a set
+  of already-visited REAL paths (`realpathSync`) so a dir whose canonical path was seen is
+  skipped — breaking an ancestor cycle without `ELOOP` — and `statSync` each entry inside
+  a try/catch so a broken/cyclic link is dropped. This still COUNTS an acyclic symlinked
+  source file/dir (real source the build+tests consume) rather than skipping every
+  symlink. (`check-loc.mjs.tmpl`, review `r3613860489` + Codex PR review on keeping
+  acyclic file links countable.)
 
 - [x] **9. `detect.mjs` — infer the test runner from a hand-written config file.**
   `detect()` set `testFramework` from a `vitest`/`jest` dep only, so a repo whose only
