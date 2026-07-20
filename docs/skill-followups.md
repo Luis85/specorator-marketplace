@@ -74,18 +74,18 @@ the catalog PR that publishes the skill.
   TS-family extension (`.ts/.tsx/.mts/.cts`, using the existing `entry` + `entryExists`)
   as TypeScript. (`detect.mjs`, review `r3613860480`.)
 
-## Open — gaps to close
+- [x] **7. `harness.mjs` — exclude non-source files from a root-layout coverage set.**
+  When the detected entry was at the repo root (e.g. `index.js`), `coverageGlobs`
+  became `**/*.{ext}` — every matching file in the repo — and the generated exclusions
+  didn't drop `eslint.config.mjs`, the jest/vitest runner config, or
+  `.project-setup-backup`, so the floor measured non-product code and later
+  tooling/backup changes could distort the coverage gate. Fix: for a root-layout
+  coverage set, add comprehensive non-source excludes — any `*.config.*` (covers
+  eslint + the runner config), the `.project-setup-backup` dir, and coverage output; a
+  `src/`-scoped layout keeps these outside `src/` and needs none. (`harness.mjs`,
+  review `r3613738207`.)
 
-- [ ] **7. `harness.mjs` — exclude non-source files from a root-layout coverage set.**
-  When the detected entry is at the repo root (e.g. `index.js`), `coverageGlobs`
-  becomes `**/*.{ext}` — every matching file in the repo. The generated exclusions
-  don't drop `eslint.config.mjs`, the test-runner config, tooling dirs, or
-  `.project-setup-backup`, so the initial floor measures non-product code and later
-  tooling/backup changes can fail or distort the coverage gate. Fix: use a
-  source-specific include set for root layouts, or add comprehensive non-source
-  excludes (config/tooling/backup). Test: a root-layout harness's coverage config
-  excludes `eslint.config.*`, the runner config, and `.project-setup-backup`.
-  (`harness.mjs:207`, review `r3613738207`.)
+## Open — gaps to close
 
 - [ ] **8. `check-loc.mjs.tmpl` — skip symlinked directories in the LOC walker.**
   `walk()` uses `statSync(...).isDirectory()`, which **follows** symlinks: a directory
