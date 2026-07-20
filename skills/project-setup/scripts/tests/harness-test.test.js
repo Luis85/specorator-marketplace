@@ -90,14 +90,18 @@ test('planTest derives the coverage root from the detected entry (non-src / root
 
 test('planTest excludes non-source files from a ROOT-layout coverage set (config/runner/backup)', () => {
   // A root entry makes coverage glob `**/*` — the whole repo — so the floor must
-  // NOT measure the generated tooling: any *.config.* (eslint.config.mjs AND the
-  // jest/vitest runner config), the setup's own backup dir, and coverage output.
+  // NOT measure the generated ROOT tooling: eslint.config.mjs AND the jest/vitest
+  // runner config, the setup's own backup dir, and coverage output. The config-file
+  // exclude is ROOT-scoped (`*.config.*`, no `**/`) so a nested PRODUCT module named
+  // e.g. lib/database.config.ts is NOT dropped from coverage.
   const jestCfg = planTest({ testFramework: 'jest', guardrails: { coverageFloors: true } }, { entry: 'index.js' }).find((a) => a.path === 'jest.config.mjs');
   assert.match(jestCfg.content, /collectCoverageFrom: \['\*\*\/\*\.\{/); // confirms the root-wide include
-  assert.match(jestCfg.content, /!\*\*\/\*\.config\.\{/); // covers eslint.config.* + jest.config.* (the runner)
+  assert.match(jestCfg.content, /!\*\.config\.\{/); // root-scoped: eslint.config.* + jest.config.* (the runner)
+  assert.doesNotMatch(jestCfg.content, /\*\*\/\*\.config/); // NOT recursive — a nested lib/foo.config.ts stays in coverage
   assert.match(jestCfg.content, /!\*\*\/\.project-setup-backup\//);
   const vitestCfg = planTest({ testFramework: 'vitest', guardrails: { coverageFloors: true } }, { entry: 'index.js' }).find((a) => a.path === 'vitest.config.mjs');
-  assert.match(vitestCfg.content, /'\*\*\/\*\.config\.\{/); // vitest exclude array (no ! prefix)
+  assert.match(vitestCfg.content, /'\*\.config\.\{/); // vitest exclude array (no ! prefix), root-scoped
+  assert.doesNotMatch(vitestCfg.content, /\*\*\/\*\.config/);
   assert.match(vitestCfg.content, /'\*\*\/\.project-setup-backup\//);
   // A src/-scoped layout keeps its config/backup OUTSIDE src/, so no extra excludes are added.
   const srcCfg = planTest({ testFramework: 'jest', guardrails: { coverageFloors: true } }, { entry: 'src/index.ts' }).find((a) => a.path === 'jest.config.mjs');

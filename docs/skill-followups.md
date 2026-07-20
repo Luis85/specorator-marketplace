@@ -80,10 +80,11 @@ the catalog PR that publishes the skill.
   didn't drop `eslint.config.mjs`, the jest/vitest runner config, or
   `.project-setup-backup`, so the floor measured non-product code and later
   tooling/backup changes could distort the coverage gate. Fix: for a root-layout
-  coverage set, add comprehensive non-source excludes — any `*.config.*` (covers
-  eslint + the runner config), the `.project-setup-backup` dir, and coverage output; a
-  `src/`-scoped layout keeps these outside `src/` and needs none. (`harness.mjs`,
-  review `r3613738207`.)
+  coverage set, add non-source excludes — the ROOT-level `*.config.*` (covers eslint +
+  the runner config; root-scoped, no `**/`, so a nested product module like
+  `lib/database.config.ts` isn't dropped from coverage), the `.project-setup-backup`
+  dir, and coverage output; a `src/`-scoped layout keeps these outside `src/` and needs
+  none. (`harness.mjs`, review `r3613738207` + Codex PR review on the root-scope.)
 
 - [x] **8. `check-loc.mjs.tmpl` — skip symlinked directories in the LOC walker.**
   `walk()` used `statSync(...).isDirectory()`, which **follows** symlinks: a directory

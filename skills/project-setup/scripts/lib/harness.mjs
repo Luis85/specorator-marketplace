@@ -206,12 +206,16 @@ export function planTest(options, state) {
   const srcDir = entryDir(state?.entry ?? 'src/index.ts'); // sanitized; null => root
   const coverageGlobs = srcDir ? `${srcDir}/**/*.{${exts}}` : `**/*.{${exts}}`;
   // A ROOT-layout coverage set globs the WHOLE repo (`**/*`), so subtract non-product
-  // files the floor must never measure: any *.config.* (eslint.config.mjs, the
-  // jest/vitest runner config, and any build config), the setup's own backup dir, and
-  // coverage output. A src/-scoped layout keeps these OUTSIDE src/, so it needs none.
+  // files the floor must never measure: the generated ROOT tooling config
+  // (eslint.config.mjs + the jest/vitest runner config), the setup's own backup dir,
+  // and coverage output. The config-file exclude is ROOT-scoped (`*.config.*`, no
+  // `**/`) on purpose: a recursive `**/*.config.*` would also drop a nested PRODUCT
+  // module like `lib/database.config.ts`, distorting the floor. The generated tooling
+  // configs all live at the repo root, so root-scoping covers them without catching
+  // product code. A src/-scoped layout keeps these OUTSIDE src/, so it needs none.
   // Rendered as trailing entries so the template's base excludes stay intact; jest
   // negates inside collectCoverageFrom (`!glob`), vitest uses a bare `exclude` array.
-  const nonSourceGlobs = srcDir ? [] : ['**/*.config.{js,cjs,mjs,ts,cts,mts}', '**/.project-setup-backup/**', '**/coverage/**'];
+  const nonSourceGlobs = srcDir ? [] : ['*.config.{js,cjs,mjs,ts,cts,mts}', '**/.project-setup-backup/**', '**/coverage/**'];
   const jestExtraExcludes = nonSourceGlobs.map((g) => `, '!${g}'`).join('');
   const vitestExtraExcludes = nonSourceGlobs.map((g) => `, '${g}'`).join('');
   const cov = Boolean(options.guardrails?.coverageFloors);
