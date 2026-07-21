@@ -2,7 +2,7 @@
 title: project-setup skill — follow-up backlog
 date: 2026-07-20
 updated: 2026-07-20
-status: in-progress
+status: done
 scope: skills/project-setup
 ---
 
@@ -64,39 +64,84 @@ the catalog PR that publishes the skill.
   freeze `typescript` like `testFramework` (the first-apply value wins over a later
   explicit change).
 
+- [x] **6. `detect.mjs` — detect TypeScript from the source entry.**
+  `detect()` set `typescript` from a `typescript` dep or a `tsconfig.json` only, so a
+  project whose entry is already `src/index.ts` but that had added neither reported
+  `typescript: false`, which is then **frozen** on the first apply (item 5) — so the
+  generated Jest and ESLint configs took their JS-only paths and coverage excluded all
+  `.ts` sources (TS tests fail to parse, or a testless project establishes a misleading
+  0% floor over ignored product code). Fix: also treat a real (existing) entry with a
+  TS-family extension (`.ts/.tsx/.mts/.cts`, using the existing `entry` + `entryExists`)
+  as TypeScript. (`detect.mjs`, review `r3613860480`.)
+
+- [x] **7. `harness.mjs` — exclude non-source files from a root-layout coverage set.**
+  When the detected entry was at the repo root (e.g. `index.js`), `coverageGlobs`
+  became `**/*.{ext}` — every matching file in the repo — and the generated exclusions
+  didn't drop `eslint.config.mjs`, the jest/vitest runner config, or
+  `.project-setup-backup`, so the floor measured non-product code and later
+  tooling/backup changes could distort the coverage gate. Fix: for a root-layout
+  coverage set, add non-source excludes — the generated tooling configs enumerated by
+  EXACT basename (`eslint.config.*` + the resolved runner config `jest.config.*` /
+  `vitest.config.*`, never a broad `*.config.*`, so a root PRODUCT module like
+  `database.config.ts` stays in coverage), the `.project-setup-backup` dir, and coverage
+  output; a `src/`-scoped layout keeps these outside `src/` and needs none. (`harness.mjs`,
+  review `r3613738207` + two Codex PR-review rounds tightening the config exclusion to
+  exact tooling basenames.)
+
+- [x] **8. `check-loc.mjs.tmpl` — don't crash (or over-skip) on symlinks in the LOC walker.**
+  `walk()` used `statSync(...).isDirectory()`, which **follows** symlinks: a directory
+  symlink to an ancestor made it recurse the same tree until Node threw `ELOOP`, and a
+  broken symlink threw immediately. Because initial apply runs the generated script with
+  `--update`, such a repo couldn't finish setup or pass `check:loc`. Fix: walk with an
+  ACTIVE recursion-stack of canonical paths (`realpathSync`) — a dir already on the current
+  branch is a cycle and is cut (no `ELOOP`), while a real dir and an acyclic alias to it are
+  BOTH walked, so the baseline stays stable across readdir order and later alias removal —
+  PLUS an ancestor guard (skip any dir that strictly CONTAINS the scan root — compared by
+  `..` path SEGMENT, not string prefix, so a dir literally named `..src` isn't mistaken for
+  `../` — so `src/up -> ..` can't climb out and bank siblings) and a per-entry `statSync`
+  try/catch (a broken link is dropped). Acyclic symlinked source files/dirs are still
+  COUNTED, not skipped wholesale. (`check-loc.mjs.tmpl`, review `r3613860489` + four Codex
+  PR-review rounds: keep acyclic file links countable, don't climb out via ancestor links,
+  use an active-path stack so a dir alias can't make the baseline order-dependent, and
+  compare `..` path segments in the ancestor guard.)
+
+- [x] **9. `detect.mjs` — infer the test runner from a hand-written config file.**
+  `detect()` set `testFramework` from a `vitest`/`jest` dep only, so a repo whose only
+  runner signal was a hand-written `vitest.config.ts` (the dep hoisted to a workspace
+  root, or the config authored pre-install) reported `null`. `freezeOptions` then
+  defaulted it to `jest`, and `standsDownTestConfig` — checking `jestConfig` on the jest
+  path — did NOT stand down, so `planTest` wrote `jest.config.mjs` and installed
+  jest/ts-jest BESIDE the user's vitest config (the day-one gate ran the wrong runner).
+  The jest-config-only case worked only by luck of the `jest` default. Fix: fall back to
+  the config-FILE signals (`vitestConfig`/`jestConfig`, vitest first — mirroring the dep
+  precedence) when no dep is present; a dep still wins. (`detect.mjs`, surfaced by the
+  skill-hardening brownfield-detection sweep.)
+
+- [x] **10. `obsidian.mjs` — don't resurrect a deleted `manifest-beta.json` on re-apply.**
+  `planManifest` wrote `manifest-beta.json` (BRAT beta channel) with `skip-if-exists`.
+  Deleting that file is a *documented* opt-out — the generated `sync-version.mjs` stages
+  it only when present so a user who removed it can still cut a release — but a
+  `skip-if-exists` write can't tell "deleted" from "never existed", so the next `apply`
+  recreated it (reported as a change), undoing the opt-out. Fix: detect
+  `manifestBetaExists` and write the beta manifest only on a fresh scaffold (no
+  `manifest.json`) or when it still exists; a re-apply with the beta file gone leaves the
+  opt-out intact. (`detect.mjs` + `obsidian.mjs`, surfaced by the idempotent-re-apply sweep.)
+
+- [x] **11. `detect.mjs` — normalize backslash separators in package.json path fields.**
+  `detectEntry`'s `strip` normalized a leading `./` or `/` but not backslashes, while the
+  downstream build-dir guard (`p.split('/')[0]`) and `entryDir` (harness) split on `/`
+  only. So a Windows package.json with `"main": "dist\\index.js"` evaded the build-output
+  skip (returned as the *source* entry), and `"source": "src\\app.ts"` collapsed the LOC
+  and coverage scan root to the whole repo (`entryDir` → `null`). Fix: normalize `\`→`/`
+  in `strip` (the single point every `source`/`main`/`module` field flows through) — `/`
+  is the package.json convention on every platform, so it's safe and platform-independent,
+  and it also makes a backslash `..\shared` escape resolve out of the project and be
+  rejected by `withinProject`. (`detect.mjs`, surfaced by the cross-platform-path sweep.)
+
 ## Open — gaps to close
 
-- [ ] **6. `detect.mjs` — detect TypeScript from the source entry.**
-  `detect()` sets `typescript` from a `typescript` dep or a `tsconfig.json` only. A
-  project whose entry is already `src/index.ts` but that hasn't added either reports
-  `typescript: false`, which is then **frozen** on the first apply (item 5) — so the
-  generated Jest and ESLint configs take their JS-only paths and coverage excludes all
-  `.ts` sources (TS tests fail to parse, or a testless project establishes a misleading
-  0% floor over ignored product code). Fix: also treat a real entry with a TS-family
-  extension (`.ts/.tsx/.mts/.cts`, using the existing `entry` + `entryExists`) as
-  TypeScript. Test: `detect()` returns `typescript: true` for a repo with only
-  `src/index.ts` and no dep/tsconfig. (`detect.mjs:170`, review `r3613860480`.)
-
-- [ ] **7. `harness.mjs` — exclude non-source files from a root-layout coverage set.**
-  When the detected entry is at the repo root (e.g. `index.js`), `coverageGlobs`
-  becomes `**/*.{ext}` — every matching file in the repo. The generated exclusions
-  don't drop `eslint.config.mjs`, the test-runner config, tooling dirs, or
-  `.project-setup-backup`, so the initial floor measures non-product code and later
-  tooling/backup changes can fail or distort the coverage gate. Fix: use a
-  source-specific include set for root layouts, or add comprehensive non-source
-  excludes (config/tooling/backup). Test: a root-layout harness's coverage config
-  excludes `eslint.config.*`, the runner config, and `.project-setup-backup`.
-  (`harness.mjs:207`, review `r3613738207`.)
-
-- [ ] **8. `check-loc.mjs.tmpl` — skip symlinked directories in the LOC walker.**
-  `walk()` uses `statSync(...).isDirectory()`, which **follows** symlinks: a directory
-  symlink to an ancestor makes it recurse the same tree until Node throws `ELOOP`, and
-  a broken symlink throws immediately. Because initial apply runs the generated script
-  with `--update`, such a repo can't finish setup or pass `check:loc`. Fix: use
-  `lstatSync`/`readdirSync(..., { withFileTypes: true })` to skip symlinked entries, or
-  track visited real paths before recursing. Test: `walk()` over a tree containing a
-  self-referential dir symlink terminates without throwing. (`check-loc.mjs.tmpl:21`,
-  review `r3613860489`.)
+_All tracked gaps above are closed. New findings surfaced by later hardening passes are
+appended here (with file, review, and the fix + test to add) before they're worked._
 
 ## Considered — declined
 
@@ -111,3 +156,29 @@ the catalog PR that publishes the skill.
   real symlink containment would mean realpath-guarding the whole scan pipeline —
   disproportionate for a self-owned-repo edge. Revisit only if the skill ever scans an
   untrusted tree.
+
+- **`detect.mjs` — infer `vitest` from a bare `vite.config.*` (Codex PR review on item 9).**
+  A package with `vitest` hoisted and its tests configured in `vite.config.ts` (no
+  separate `vitest.config`) is inferred as jest. Declined: `vite.config` is primarily a
+  **bundler** config, and inferring vitest from its mere presence would make a
+  bundler-only Vite repo (no tests) stand the test gate down and get **no** test
+  scaffolding — worse than the current jest default, which always leaves a working test
+  gate. The codebase deliberately treats `viteConfig` as a stand-down signal only when
+  vitest is already resolved (dep / answer / `vitest.config`), precisely because
+  `vite.config` alone is ambiguous. A content-aware variant (infer vitest only if the
+  file imports `vitest/config` or declares a `test:` block) is possible but relies on a
+  fragile text heuristic over the config; the reviewer's scenario is a narrow
+  monorepo-leaf case, and `project-setup` targets single-repo scaffolding. Revisit if a
+  content-aware signal proves worth the fragility.
+
+- **`harness.mjs` — exclude a custom `--backup-dir` from the root-layout coverage set (Codex PR review on item 7).**
+  The root-layout coverage excludes drop the default `.project-setup-backup/` but not an
+  arbitrary in-project `--backup-dir`. Declined as a non-issue: the reviewer's example
+  (a backed-up `eslint.config.mjs`) can't occur — `eslint.config.mjs` and the runner
+  config are `skip-if-exists`, so they're **never** backed up. The only `overwrite-backup`
+  files with a coverage source extension (generic root layout) live under `scripts/`
+  (`check-loc.mjs`, `check-quality.mjs`, `quality-report.mjs`), which the base excludes
+  already drop at **any** depth (`!**/scripts/...`), so a copy under any backup dir is
+  excluded wherever it lands. Threading a per-invocation CLI flag into the committed
+  coverage config would also bake a transient choice into a persistent file. Revisit only
+  if an `overwrite-backup` **source** file is ever written outside `scripts/`.

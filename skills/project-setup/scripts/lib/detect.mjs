@@ -20,10 +20,15 @@ const BUILD_DIRS = new Set(['dist', 'build', 'out', 'esm', 'cjs', 'umd', 'lib-es
 
 export function detectEntry(cwd) {
   const pkg = readJsonSafe(join(cwd, 'package.json'));
-  // Normalize a leading ./ or / so roots derive correctly and the entry stays
-  // project-relative: a leading-slash "source":"/src/main.ts" would otherwise be
-  // returned verbatim and become an absolute esbuild/fallow target at the FS root.
-  const strip = (p) => p.replace(/^\.?\/+/, '');
+  // Normalize backslash separators, then a leading ./ or /, so roots derive correctly
+  // and the entry stays project-relative. Two reasons: (1) a leading-slash
+  // "source":"/src/main.ts" would otherwise be returned verbatim and become an absolute
+  // esbuild/fallow target at the FS root; (2) package.json path fields may use `\` on
+  // Windows, and the downstream build-dir check (split on `/`) + entryDir (harness)
+  // would then mis-classify `dist\index.js` as source or collapse a `src\app.ts` scan
+  // root to the whole repo. `/` is the package.json convention on every platform, so
+  // normalizing `\`->`/` is safe and platform-independent.
+  const strip = (p) => p.replace(/\\/g, '/').replace(/^\.?\/+/, '');
   // A package.json path field is untrusted: confirm it RESOLVES to a location
   // beneath cwd so a crafted `source`/`main`/`module` can't make the generated
   // build bundle — or the ratchets scan — files outside the project. Checking the
@@ -162,12 +167,33 @@ export function detect(cwd) {
   const pkg = readJsonSafe(join(cwd, 'package.json')) ?? {};
   const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
   const has = (name) => Object.prototype.hasOwnProperty.call(deps, name);
-  const testFramework = has('vitest') ? 'vitest' : has('jest') ? 'jest' : null;
+  // Config-FILE signals (a hand-written jest/vitest config with no MARKER, see
+  // hasUnmarkedConfig). Computed up here so the runner inference can fall back to
+  // them: a repo whose only signal is a hand-written config — the runner dep hoisted
+  // to a workspace root, or the config authored before the first install — resolves
+  // the right runner instead of defaulting to jest (which would install the wrong
+  // toolchain BESIDE the user's config, since standsDownTestConfig then checks the
+  // wrong file). A dep is the stronger signal, so it still wins; among configs vitest
+  // wins, mirroring the dep precedence.
+  const jestConfigFile = hasUnmarkedConfig(cwd, JEST_CONFIGS) || pkg.jest != null;
+  const vitestConfigFile = hasUnmarkedConfig(cwd, VITEST_CONFIGS);
+  const testFramework = has('vitest') ? 'vitest'
+    : has('jest') ? 'jest'
+    : vitestConfigFile ? 'vitest'
+    : jestConfigFile ? 'jest'
+    : null;
   const entry = detectEntry(cwd);
   const entryExists = existsSync(join(cwd, entry));
+  // A real source entry with a TS-family extension is a TypeScript project even
+  // without a `typescript` dep or a tsconfig.json — otherwise typescript is frozen
+  // false on the first apply (options.mjs) and the generated Jest/ESLint configs
+  // take their JS-only paths while coverage excludes every .ts source. Only an
+  // EXISTING entry counts: detectEntry returns src/index.ts as a syntactic
+  // fallback, so a fileless repo must stay undecided (entryExists guards it).
+  const tsEntry = entryExists && /\.(ts|tsx|mts|cts)$/.test(entry);
   return {
     packageManager: detectPackageManager(cwd),
-    typescript: has('typescript') || existsSync(join(cwd, 'tsconfig.json')),
+    typescript: has('typescript') || existsSync(join(cwd, 'tsconfig.json')) || tsEntry,
     eslint: has('eslint'),
     fallow: has('fallow'),
     testFramework,
@@ -201,9 +227,10 @@ export function detect(cwd) {
     ciWorkflow: hasUnmarkedConfig(cwd, ['.github/workflows/ci.yml']),
     releaseWorkflow: hasUnmarkedConfig(cwd, ['.github/workflows/release.yml']),
     // Jest also reads a `jest` key in package.json — writing jest.config.mjs beside
-    // it makes Jest 30 error "Multiple configurations found".
-    jestConfig: hasUnmarkedConfig(cwd, JEST_CONFIGS) || pkg.jest != null,
-    vitestConfig: hasUnmarkedConfig(cwd, VITEST_CONFIGS),
+    // it makes Jest 30 error "Multiple configurations found". (Same booleans the
+    // runner inference above used.)
+    jestConfig: jestConfigFile,
+    vitestConfig: vitestConfigFile,
     viteConfig: existsAny(cwd, VITE_CONFIGS),
     // Existing .claude/settings.json (Claude Code hooks + permissions), so
     // planClaudeSettings can reconcile OUR engine-owned hook group on re-apply
@@ -215,6 +242,11 @@ export function detect(cwd) {
     // (not a fresh scaffold), so the obsidian planner must not force-overwrite an
     // existing package.json identity just because the version couldn't be parsed.
     manifestExists: existsSync(join(cwd, 'manifest.json')),
+    // manifest-beta.json (BRAT beta channel) existence, tracked separately: deleting
+    // it is a documented opt-out (sync-version stages it only when present), so a
+    // re-apply must not resurrect it — obsidian's planManifest keys the beta write on
+    // this (a skip-if-exists write alone can't tell "deleted" from "never existed").
+    manifestBetaExists: existsSync(join(cwd, 'manifest-beta.json')),
     // The existing manifest's version (the manifest owns the plugin version). On a
     // re-apply after `npm version`, this keeps package.json synced to it instead of
     // being reset to the initial constant (which would desync check:artifacts).

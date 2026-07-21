@@ -48,6 +48,25 @@ test('detect reports tooling presence from package.json', () => {
   }
 });
 
+test('detect infers TypeScript from a .ts source entry (no dep, no tsconfig)', () => {
+  // A repo whose only TS signal is src/index.ts — no `typescript` dep, no
+  // tsconfig.json. The entry's extension must set typescript:true, else it's
+  // frozen false on the first apply and the generated Jest/ESLint configs take
+  // their JS-only paths while coverage excludes every .ts source.
+  const ts = tmpProject({ 'src/index.ts': 'export const x = 1;\n' });
+  const js = tmpProject({ 'src/index.js': 'export const x = 1;\n' });
+  const empty = tmpProject({}); // no entry file -> the src/index.ts fallback is syntactic
+  try {
+    assert.equal(detect(ts.dir).typescript, true);
+    assert.equal(detect(js.dir).typescript, false); // a real JS entry stays JS
+    assert.equal(detect(empty.dir).typescript, false); // a fileless repo stays undecided
+  } finally {
+    ts.cleanup();
+    js.cleanup();
+    empty.cleanup();
+  }
+});
+
 test('detectPackageManager returns bun for a bun.lock file (v1.2+ text lockfile)', () => {
   const p = tmpProject({ 'bun.lock': '' });
   try {
@@ -167,6 +186,22 @@ test('detectEntry strips a leading ./ and still skips ./dist build paths', () =>
   }
 });
 
+test('detectEntry normalizes backslash separators in a package.json path field (cross-platform)', () => {
+  // package.json path fields may legally use backslashes on Windows, but the build-dir
+  // guard and entryDir (harness) split on `/` only — so a `\`-separated source would be
+  // mis-scoped (scan root collapsed to the repo) or mis-classified (build output not
+  // skipped). `/` is the package.json convention everywhere, so `\` normalizes to `/`.
+  const nested = tmpProject({ 'package.json': { source: 'app\\core.ts' }, 'app/core.ts': '' });
+  const build = tmpProject({ 'package.json': { main: 'build\\out.js' }, 'build/out.js': '' }); // no src fallback candidate
+  try {
+    assert.equal(detectEntry(nested.dir), 'app/core.ts'); // normalized + honored, not the src/index.ts fallback
+    assert.equal(detectEntry(build.dir), 'src/index.ts'); // build\out.js recognized as build output -> skipped
+  } finally {
+    nested.cleanup();
+    build.cleanup();
+  }
+});
+
 test('detectEntry finds a lib/ entry (expanded source-dir candidates)', () => {
   const p = tmpProject({ 'lib/index.ts': '' });
   try {
@@ -194,6 +229,36 @@ test('detectEntry matches modern module extensions (.mts/.cts/.cjs)', () => {
     assert.equal(detectEntry(mts.dir), 'src/index.mts');
   } finally {
     mts.cleanup();
+  }
+});
+
+test('detect infers the test runner from a hand-written config when no dep is present', () => {
+  // A repo whose only runner signal is a hand-written config (the runner dep hoisted
+  // to a workspace root, or the config authored pre-install). Without inferring it,
+  // freezeOptions defaults to jest and planTest wires the coverage gate BESIDE the
+  // user's vitest.config instead of standing down — installing the wrong toolchain.
+  const vitestOnly = tmpProject({ 'vitest.config.ts': 'export default {};\n' });
+  const jestOnly = tmpProject({ 'jest.config.js': 'module.exports = {};\n' });
+  const neither = tmpProject({ 'package.json': { name: 'x' } });
+  try {
+    assert.equal(detect(vitestOnly.dir).testFramework, 'vitest');
+    assert.equal(detect(jestOnly.dir).testFramework, 'jest');
+    assert.equal(detect(neither.dir).testFramework, null); // no signal -> null (planners default to jest)
+  } finally {
+    vitestOnly.cleanup();
+    jestOnly.cleanup();
+    neither.cleanup();
+  }
+});
+
+test('detect prefers a dep over a config file for the runner (dep is the stronger signal)', () => {
+  // vitest dep present but a stale jest.config on disk: the dep wins, so the inference
+  // never overrides an installed runner.
+  const p = tmpProject({ 'package.json': { devDependencies: { vitest: '^2' } }, 'jest.config.js': 'module.exports = {};\n' });
+  try {
+    assert.equal(detect(p.dir).testFramework, 'vitest');
+  } finally {
+    p.cleanup();
   }
 });
 
