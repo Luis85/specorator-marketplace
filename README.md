@@ -20,10 +20,10 @@ on-disk format Specorator's own stores already read.
 | Category | Folder | Count | What it is | Installs to |
 |---|---|--:|---|---|
 | Quick Actions | [`quick-actions/`](quick-actions/) | 3 | One-tap saved prompts for the chat composer | your Quick Actions folder |
-| Agents | [`agents/`](agents/) | 8 | Named roster specialists (brief + system prompt + role) | `.specorator/agents/` |
+| Agents | [`agents/`](agents/) | 9 | Named roster specialists (brief + system prompt + role) | `.specorator/agents/` |
 | Loops | [`loops/`](loops/) | 10 | Use-when / Approach / Steps / Verify / Notes playbooks | your Loop folder |
 | Work-Order Templates | [`templates/`](templates/) | 6 | Reusable Agent Board work-order skeletons | your Template folder |
-| Skills | [`skills/`](skills/) | 1 | `SKILL.md` capability folders an agent auto-loads | a provider's skill root (project or user), chosen on install |
+| Skills | [`skills/`](skills/) | 13 | `SKILL.md` capability folders an agent auto-loads | a provider's skill root (project or user), chosen on install |
 
 The machine-readable index of everything above is **[`index.json`](index.json)** — the manifest
 the plugin fetches first (one request) to list, search, and filter the catalog. It is generated
@@ -62,6 +62,12 @@ skill's `files` array.
 - The **Loops** are curated and adapted from the
   [Forward-Future loop library](https://github.com/Forward-Future/loop-library) (MIT).
 - Agents, Templates, and Quick Actions are authored by the Specorator project.
+- The **project-management skills** (project brief, business case, charter, statement of work,
+  scope and WBS, schedule, RAID log, stakeholder plan, status report, change request, closure,
+  delivery approach) are authored by the Specorator project, grounded in published industry
+  standards — PMBOK® Guide 7/8, PRINCE2® 7, ISO 21502, ISO 31000, the European Commission's PM²,
+  the Scrum Guide, ANSI/EIA-748 earned value, and HM Treasury's Five Case Model. They contain no
+  copyrighted text from those standards; each skill names its sources in a *Grounding* section.
 
 Each item carries its own `author`, `source`, and `license` in its frontmatter and in
 `index.json`.
