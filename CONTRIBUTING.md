@@ -46,6 +46,7 @@ are ignored by the plugin's note parsers, so they never interfere with installin
 | `license` | yes | `MIT` unless the author grants another redistributable license. |
 | `tags` | yes | Drives search + tag filtering. |
 | `version` | recommended | Integer; bump on a meaningful content change. |
+| `requires` | when the item needs others | Catalog ids installed **with** this item. See [Packages](#packages--items-that-bring-their-dependencies). |
 
 ## Per-type format
 
@@ -145,7 +146,8 @@ You review changes with technical rigor. …
 | `id` | `roster:<slug>` derived from `name` |
 | `name`, `description`, `icon`, `color`, `initials`, `roles` | frontmatter |
 | `prompt` | the Markdown body |
-| `disallowedTools`, `skills` | start empty — the installing user grants these per agent |
+| `disallowedTools` | starts empty — the installing user grants these per agent |
+| `skills` | the skills listed in `requires`, bound to the agent as they install (see [Packages](#packages--items-that-bring-their-dependencies)); empty when the agent declares none |
 | `createdAt`, `updatedAt` | set at install time |
 
 ### Skills — `skills/<skill-name>/SKILL.md`
@@ -165,6 +167,40 @@ install time, so the skill folder itself carries no provider- or scope-specific 
 Skills are **text-only**. The plugin fetches each file as text and writes it back as UTF-8, so a
 binary asset (image, font, archive, …) would be silently corrupted on install — `validate:strict`
 rejects any skill file containing a NUL byte. Keep skills to `SKILL.md` plus text supporting files.
+
+## Packages — items that bring their dependencies
+
+Some items are only useful together: an agent that works through a set of skills, a template
+that assumes a loop. Declare those with `requires` — a list of **catalog ids** (`<folder>/<slug>`,
+the same `id` the item gets in `index.json`):
+
+```yaml
+---
+type: specorator-agent
+name: "Project Manager"
+# …
+requires:
+  - skills/project-brief
+  - skills/raid-log
+---
+```
+
+The plugin then treats the item as a **package**: opening it in the Marketplace lists what comes
+with it, and one Install writes the whole set — **dependencies first, the item itself last**, so a
+failure part-way never leaves an agent claiming skills that aren't there. Anything already
+installed is skipped rather than overwritten. When an **agent** requires **skills**, the installed
+skills are also bound to the agent's `skills` field, so it can reach them without the user wiring
+them up by hand.
+
+Rules `validate` enforces (all errors):
+
+- every entry is a well-formed catalog id that **resolves to an item in this catalog**;
+- an item never requires itself, and never lists the same dependency twice;
+- the graph is **acyclic** (dependencies may nest — a skill may require another skill);
+- at most **50** direct dependencies per item, and at most **100** items in one resolved package.
+
+Keep `requires` to what the item genuinely needs at runtime. It is a hard install dependency, not
+a recommendation: everything listed lands in the user's vault.
 
 ## Before you open a PR
 

@@ -151,6 +151,20 @@
         "governance",
         "artifacts"
       ],
+      "requires": [
+        "skills/business-case",
+        "skills/change-request",
+        "skills/delivery-approach",
+        "skills/project-brief",
+        "skills/project-charter",
+        "skills/project-closure",
+        "skills/project-schedule",
+        "skills/raid-log",
+        "skills/scope-and-wbs",
+        "skills/stakeholder-plan",
+        "skills/statement-of-work",
+        "skills/status-report"
+      ],
       "icon": "clipboard-list",
       "roles": [
         "worker",

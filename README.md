@@ -49,6 +49,13 @@ or Cursor) and a **scope** — *project* (the vault's `.claude/skills`, `.codex/
 the skill lands under `<root>/<skill-name>/`. The `SKILL.md` you preview is exactly what installs;
 the supporting files are fetched from the same source at install time.
 
+**Packages.** An item may declare a `requires` list of other catalog ids — the Project Manager
+agent, for instance, ships with the thirteen project-artifact skills it works through. The detail
+view lists what comes with it, and one Install writes the whole set: dependencies first, the item
+itself last, skipping anything already installed. Skills required by an agent are also bound to
+that agent, so it can reach them straight away. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md#packages--items-that-bring-their-dependencies).
+
 ## Manual install
 
 You can also install anything here by hand without the plugin view: open the item's `.md`, and
