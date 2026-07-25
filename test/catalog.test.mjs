@@ -16,6 +16,7 @@ import {
   buildManifest,
   validateCatalog,
   listSkillFiles,
+  resolvePackage,
 } from '../scripts/lib/catalog.mjs';
 
 // --- pure helpers -----------------------------------------------------------
@@ -427,4 +428,96 @@ test('validateCatalog warns (does not error) on quick-action favorite state', ()
   });
   assert.deepEqual(errors, []);
   assert.ok(has(warnings, /favorite state/));
+});
+
+// --- packages (`requires`) ---------------------------------------------------
+
+/** An agent fixture whose `requires` block is supplied by the caller. */
+const agentWith = (requires) =>
+  [
+    '---',
+    'type: specorator-agent',
+    'name: "Project Manager"',
+    'description: "d"',
+    'icon: "clipboard-list"',
+    'color: "var(--color-blue)"',
+    'initials: "PM"',
+    'roles: ["worker"]',
+    'tags: ["x"]',
+    ...requires,
+    'author: "A"',
+    'license: MIT',
+    '---',
+    '',
+    'Prompt.',
+  ].join('\n');
+
+const skillNamed = (name) =>
+  ['---', `name: ${name}`, 'description: "Use when x."', 'tags: ["x"]', 'author: A', 'license: MIT', '---', '', 'body'].join('\n');
+
+test('buildItem publishes `requires` so the plugin can install a package', () => {
+  const root = makeCatalog({
+    'agents/project-manager.md': agentWith(['requires:', '  - skills/project-brief']),
+    'skills/project-brief/SKILL.md': skillNamed('project-brief'),
+  });
+  try {
+    const items = collectItems(root);
+    const agent = items.find((i) => i.id === 'agents/project-manager');
+    assert.deepEqual(agent.requires, ['skills/project-brief']);
+    // Absent on an item that declares none — never published as an empty array.
+    assert.equal('requires' in items.find((i) => i.id === 'skills/project-brief'), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('validateCatalog accepts an agent requiring skills that exist', () => {
+  const { errors, warnings } = validateFixture({
+    'agents/project-manager.md': agentWith(['requires: ["skills/project-brief", "skills/raid-log"]']),
+    'skills/project-brief/SKILL.md': skillNamed('project-brief'),
+    'skills/raid-log/SKILL.md': skillNamed('raid-log'),
+  });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, []);
+});
+
+test('validateCatalog flags a dependency that is not in the catalog', () => {
+  const { errors } = validateFixture({
+    'agents/project-manager.md': agentWith(['requires: ["skills/absent"]']),
+  });
+  assert.ok(has(errors, /names "skills\/absent", which is not in this catalog/));
+});
+
+test('validateCatalog flags a malformed, self-referencing, or duplicated dependency', () => {
+  const { errors } = validateFixture({
+    'agents/project-manager.md': agentWith([
+      'requires: ["../etc/passwd", "agents/project-manager", "skills/project-brief", "skills/project-brief"]',
+    ]),
+    'skills/project-brief/SKILL.md': skillNamed('project-brief'),
+  });
+  assert.ok(has(errors, /is not a catalog id/));
+  assert.ok(has(errors, /must not list the item itself/));
+  assert.ok(has(errors, /lists "skills\/project-brief" more than once/));
+});
+
+test('validateCatalog flags a dependency cycle', () => {
+  const { errors } = validateFixture({
+    'agents/one.md': agentWith(['requires: ["agents/two"]']).replace('Project Manager', 'One'),
+    'agents/two.md': agentWith(['requires: ["agents/one"]']).replace('Project Manager', 'Two'),
+  });
+  assert.ok(has(errors, /dependency cycle/));
+});
+
+test('resolvePackage orders dependencies before dependents and reports cycles', () => {
+  const graph = new Map([
+    ['agents/pm', ['skills/brief', 'skills/raid']],
+    ['skills/brief', ['skills/shared']],
+    ['skills/raid', ['skills/shared']],
+    ['skills/shared', []],
+  ]);
+  const { order } = resolvePackage('agents/pm', graph);
+  assert.deepEqual(order, ['skills/shared', 'skills/brief', 'skills/raid', 'agents/pm']);
+
+  const cyclic = new Map([['a/one', ['a/two']], ['a/two', ['a/one']]]);
+  assert.deepEqual(resolvePackage('a/one', cyclic).cycle, ['a/one', 'a/two', 'a/one']);
 });

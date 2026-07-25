@@ -139,6 +139,54 @@ export function parseVersion(raw) {
 }
 
 /**
+ * The most direct `requires` entries one item may declare, and the most items one
+ * resolved package (the root plus every transitive dependency) may contain. A
+ * package is installed as a unit by the plugin, so both are bounded here — at the
+ * source — as well as in the plugin's own resolver.
+ */
+export const MAX_ITEM_REQUIRES = 50;
+export const MAX_PACKAGE_ITEMS = 100;
+
+/** A catalog id's shape: `<folder>/<slug>`, lowercase alphanumeric-hyphen segments. */
+const CATALOG_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function isCatalogId(value) {
+  return typeof value === 'string' && CATALOG_ID_RE.test(value);
+}
+
+/**
+ * The full package for `id` — every transitive dependency, dependencies BEFORE
+ * dependents, with `id` last — resolved against `graph` (id → direct requires).
+ * Returns `{ order }` on success, or `{ cycle }` naming the ids on a dependency
+ * cycle. Unknown ids are skipped here (the validator reports them separately), so
+ * this stays total: a missing dependency must not hide a cycle elsewhere.
+ *
+ * Mirrors the plugin's `resolvePackage` so a package that validates here resolves
+ * to the same order on install.
+ */
+export function resolvePackage(id, graph) {
+  const order = [];
+  const done = new Set();
+  const onPath = new Set();
+  const visit = (current, path) => {
+    if (done.has(current)) return null;
+    if (onPath.has(current)) return [...path.slice(path.indexOf(current)), current];
+    if (!graph.has(current)) return null; // unknown: reported as a missing dependency
+    onPath.add(current);
+    for (const next of graph.get(current)) {
+      const cycle = visit(next, [...path, current]);
+      if (cycle) return cycle;
+    }
+    onPath.delete(current);
+    done.add(current);
+    order.push(current);
+    return null;
+  };
+  const cycle = visit(id, []);
+  return cycle ? { cycle } : { order };
+}
+
+/**
  * Every file under a skill folder as repo-relative POSIX paths (forward slashes),
  * depth-first with each directory level sorted by name — deterministic across
  * platforms. A skill is multi-file: its `SKILL.md` plus any supporting
@@ -234,6 +282,12 @@ export function buildItem(entry) {
   // install the whole skill, not just its SKILL.md. Repo-relative POSIX paths,
   // deterministic order (see listSkillFiles). Omitted for single-file types.
   if (entry.type === 'skill' && Array.isArray(entry.files)) item.files = entry.files;
+  // A package: the catalog ids this item needs to be useful (an agent and the
+  // skills it drives). The plugin installs them together, dependencies first.
+  if (fm.requires) {
+    const requires = toList(fm.requires).filter((value) => value !== '');
+    if (requires.length > 0) item.requires = requires;
+  }
   if (fm.icon) item.icon = fm.icon;
   if (fm.roles) item.roles = toList(fm.roles);
   if (fm.priority) item.priority = fm.priority;
@@ -256,6 +310,63 @@ export function buildManifest(items) {
 const nonEmptyString = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '');
 
 /**
+ * Checks one item's declared `requires` shape and returns the (accepted) list.
+ * Shape only — that each id RESOLVES, and that the whole graph is acyclic and
+ * bounded, is checked once across the catalog in `validateDependencyGraph`.
+ */
+function validateRequires(raw, id, err) {
+  if (raw === undefined || raw === '') return [];
+  const requires = toList(raw).filter((value) => value !== '');
+  if (requires.length > MAX_ITEM_REQUIRES) {
+    err(`\`requires\` declares ${requires.length} dependencies, over the ${MAX_ITEM_REQUIRES} limit`);
+    return [];
+  }
+  const accepted = [];
+  const seen = new Set();
+  for (const dependency of requires) {
+    if (!isCatalogId(dependency)) {
+      err(`\`requires\` entry ${JSON.stringify(dependency)} is not a catalog id ("<folder>/<slug>")`);
+      continue;
+    }
+    if (dependency === id) {
+      err('`requires` must not list the item itself');
+      continue;
+    }
+    if (seen.has(dependency)) {
+      err(`\`requires\` lists "${dependency}" more than once`);
+      continue;
+    }
+    seen.add(dependency);
+    accepted.push(dependency);
+  }
+  return accepted;
+}
+
+/**
+ * Catalog-wide dependency checks: every `requires` id resolves to a real item, no
+ * cycle exists, and no package (root + transitive dependencies) exceeds
+ * `MAX_PACKAGE_ITEMS`. Run after the per-item pass, when every id is known.
+ */
+function validateDependencyGraph(graph, seenIds, errors) {
+  for (const [id, requires] of graph) {
+    const path = seenIds.get(id) ?? id;
+    for (const dependency of requires) {
+      if (!graph.has(dependency)) {
+        errors.push(`${path}: \`requires\` names "${dependency}", which is not in this catalog`);
+      }
+    }
+    const { cycle, order } = resolvePackage(id, graph);
+    if (cycle) {
+      errors.push(`${path}: dependency cycle — ${cycle.join(' → ')}`);
+    } else if (order.length > MAX_PACKAGE_ITEMS) {
+      errors.push(
+        `${path}: package resolves to ${order.length} items, over the ${MAX_PACKAGE_ITEMS} limit`,
+      );
+    }
+  }
+}
+
+/**
  * Validates every catalog item against its per-type contract.
  * Returns `{ errors, warnings }` — errors fail CI; warnings fail only under --strict.
  */
@@ -263,6 +374,9 @@ export function validateCatalog(root) {
   const errors = [];
   const warnings = [];
   const seenIds = new Map();
+  // id → its declared `requires`, collected during the per-item pass so the
+  // dependency pass below can check ids resolve and the graph stays acyclic.
+  const graph = new Map();
 
   for (const entry of readCatalogFiles(root)) {
     const { frontmatter: fm, type, typeMarker, path } = entry;
@@ -366,7 +480,11 @@ export function validateCatalog(root) {
     const id = `${entry.folder}/${entry.slug}`;
     if (seenIds.has(id)) err(`duplicate id "${id}" (also ${seenIds.get(id)})`);
     else seenIds.set(id, path);
+
+    graph.set(id, validateRequires(fm.requires, id, err));
   }
+
+  validateDependencyGraph(graph, seenIds, errors);
 
   // Layout audit. readCatalogFiles silently skips anything that doesn't fit a
   // folder's expected shape (so `build` stays lenient), which means a misplaced
