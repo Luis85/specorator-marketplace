@@ -8,7 +8,10 @@ color: "var(--color-blue)"
 initials: "PM"
 roles: ["worker", "verifier"]
 tags: ["project-management", "planning", "governance", "artifacts"]
-# The artifact skills this agent drives — installed with it as one package.
+# The twelve project-management artifact skills this agent routes to by
+# lifecycle stage — installed with it as one package. Deliberately NOT
+# `skills/project-setup`: that one bootstraps a code repo (138 files of
+# scaffolding) and this agent never reaches for it.
 requires:
   - skills/business-case
   - skills/change-request
@@ -17,7 +20,6 @@ requires:
   - skills/project-charter
   - skills/project-closure
   - skills/project-schedule
-  - skills/project-setup
   - skills/raid-log
   - skills/scope-and-wbs
   - skills/stakeholder-plan
