@@ -6,9 +6,31 @@ trigger matches) that a Specorator user can install into their vault's skill roo
 
 ## Status
 
-**Live** — the first skill, [`project-setup/`](project-setup/), is published, and the in-plugin
-Marketplace installs skills with a **provider** (Claude / Codex / Cursor) and **scope** (project
-vault or user home) chooser. Ready for more curated contributions.
+**Live** — the in-plugin Marketplace installs skills with a **provider** (Claude / Codex /
+Cursor) and **scope** (project vault or user home) chooser. Ready for more curated contributions.
+
+Published so far:
+
+| Skill | Use it for |
+|---|---|
+| [`project-setup/`](project-setup/) | Bootstrapping a repo: product vision / PRDs, quality harness, Obsidian-plugin workspace |
+| [`delivery-approach/`](delivery-approach/) | Choosing predictive / iterative / incremental / adaptive / hybrid, designing gates, tailoring a method |
+| [`project-brief/`](project-brief/) | The short document a sponsor decides *whether to initiate* from |
+| [`business-case/`](business-case/) | Options appraisal, costs and benefits, NPV / BCR / payback, benefits ownership |
+| [`project-charter/`](project-charter/) | Authorising a project: objectives, governance, decision rights, tolerances |
+| [`statement-of-work/`](statement-of-work/) | Commissioning supplier work: deliverables, acceptance, payment triggers, change control |
+| [`scope-and-wbs/`](scope-and-wbs/) | Scope statement, WBS + dictionary under the 100% rule, requirements traceability |
+| [`project-schedule/`](project-schedule/) | Milestones, dependency logic, critical path, estimating, buffers, forecasts |
+| [`raid-log/`](raid-log/) | Risks, assumptions, issues, dependencies, decisions — with scoring and responses |
+| [`stakeholder-plan/`](stakeholder-plan/) | Stakeholder register and analysis, RACI, communications plan |
+| [`status-report/`](status-report/) | Highlight / exception reporting with earned value or flow metrics |
+| [`change-request/`](change-request/) | Change impact analysis, options, CCB routing, baseline updates |
+| [`project-closure/`](project-closure/) | Closure report, lessons, handover, post-implementation benefits review |
+
+The twelve project-management skills pair with the **Project Manager** agent
+([`agents/project-manager.md`](../agents/project-manager.md)), which routes to them by
+lifecycle stage. Each one works standalone too, and each supports both *produce* and *review*
+modes — the review checklist is the part most often wanted first.
 
 ## Format (when adding a skill)
 

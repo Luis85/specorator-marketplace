@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "catalog": "specorator-marketplace",
-  "count": 28,
+  "count": 41,
   "items": [
     {
       "id": "quick-actions/build-or-update-a-use-case-map",
@@ -134,6 +134,27 @@
       "icon": "map",
       "roles": [
         "worker"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "agents/project-manager",
+      "type": "agent",
+      "name": "Project Manager",
+      "description": "Support agent for the project manager — drafts and reviews project artifacts across the full lifecycle, tailored to the delivery approach.",
+      "path": "agents/project-manager.md",
+      "tags": [
+        "project-management",
+        "planning",
+        "governance",
+        "artifacts"
+      ],
+      "icon": "clipboard-list",
+      "roles": [
+        "worker",
+        "verifier"
       ],
       "author": "Specorator",
       "license": "MIT",
@@ -449,6 +470,171 @@
       "version": 1
     },
     {
+      "id": "skills/business-case",
+      "type": "skill",
+      "name": "business-case",
+      "description": "Use when a project's investment needs justifying or re-justifying — writing or updating a business case, cost-benefit analysis, benefits map, options appraisal, or investment paper, or reviewing an existing case before a funding gate. Produces a structured case covering strategic fit, options appraisal, quantified costs and benefits with NPV/ROI/payback, commercial and financial viability, and how benefits will be measured and realised.",
+      "path": "skills/business-case/SKILL.md",
+      "tags": [
+        "project-management",
+        "business-case",
+        "benefits",
+        "investment",
+        "governance",
+        "artifact"
+      ],
+      "files": [
+        "skills/business-case/references/financial-appraisal.md",
+        "skills/business-case/references/review-checklist.md",
+        "skills/business-case/references/template.md",
+        "skills/business-case/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/change-request",
+      "type": "skill",
+      "name": "change-request",
+      "description": "Use when something needs to change after a baseline is set — raising or assessing a change request, variation, or change order; running impact analysis across scope, schedule, cost, quality, risk and benefits; preparing a change for a CCB or project board decision; or setting up the change-control process and its thresholds. Produces a decision-ready change request with options, impacts, a recommendation, and the baseline updates it triggers.",
+      "path": "skills/change-request/SKILL.md",
+      "tags": [
+        "project-management",
+        "change-control",
+        "change-request",
+        "baseline",
+        "governance",
+        "artifact"
+      ],
+      "files": [
+        "skills/change-request/references/impact-analysis.md",
+        "skills/change-request/references/review-checklist.md",
+        "skills/change-request/references/template.md",
+        "skills/change-request/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/delivery-approach",
+      "type": "skill",
+      "name": "delivery-approach",
+      "description": "Use when choosing or defending how a project will be run — predictive, iterative, incremental, adaptive, or hybrid — when designing its lifecycle phases and governance gates, when tailoring a method (PMBOK, PRINCE2, PM², Scrum, Kanban, SAFe) to a specific project, or when reviewing whether a stated approach actually fits the work. Produces a short, evidence-based delivery-approach decision with the tailoring choices and the artifact set it implies.",
+      "path": "skills/delivery-approach/SKILL.md",
+      "tags": [
+        "project-management",
+        "delivery-approach",
+        "tailoring",
+        "governance",
+        "hybrid",
+        "agile"
+      ],
+      "files": [
+        "skills/delivery-approach/references/approach-selection.md",
+        "skills/delivery-approach/references/review-checklist.md",
+        "skills/delivery-approach/references/template.md",
+        "skills/delivery-approach/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/project-brief",
+      "type": "skill",
+      "name": "project-brief",
+      "description": "Use when an idea, request, or mandate needs to become a short document a sponsor can decide on — writing a project brief, project one-pager, initiation request, or pre-project summary, or reviewing an existing brief before it goes to a board. Produces a concise brief covering background, objectives, scope boundaries, outline business case, constraints, stakeholders, risks, and the decision being asked for.",
+      "path": "skills/project-brief/SKILL.md",
+      "tags": [
+        "project-management",
+        "project-brief",
+        "initiation",
+        "prince2",
+        "artifact"
+      ],
+      "files": [
+        "skills/project-brief/references/review-checklist.md",
+        "skills/project-brief/references/template.md",
+        "skills/project-brief/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/project-charter",
+      "type": "skill",
+      "name": "project-charter",
+      "description": "Use when a project needs to be formally authorised and its ground rules fixed — writing or updating a project charter, project initiation documentation (PID), project handbook, or team charter, or reviewing one before a delivery gate. Produces the authorising document: objectives, success criteria, scope boundary, deliverables, milestones, budget, governance and decision rights, tolerances, roles, and the management approaches the project will follow.",
+      "path": "skills/project-charter/SKILL.md",
+      "tags": [
+        "project-management",
+        "project-charter",
+        "pid",
+        "governance",
+        "initiation",
+        "artifact"
+      ],
+      "files": [
+        "skills/project-charter/references/review-checklist.md",
+        "skills/project-charter/references/template.md",
+        "skills/project-charter/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/project-closure",
+      "type": "skill",
+      "name": "project-closure",
+      "description": "Use when a project or phase is ending or has ended — writing a closure or end-project report, running a lessons-learned session or retrospective, preparing operational handover and transition, confirming acceptance and outstanding items, or planning and running the post-implementation benefits review. Produces closure evidence, transferable lessons with owners, a handover that operations will accept, and a scheduled benefits review.",
+      "path": "skills/project-closure/SKILL.md",
+      "tags": [
+        "project-management",
+        "closure",
+        "lessons-learned",
+        "benefits",
+        "handover",
+        "artifact"
+      ],
+      "files": [
+        "skills/project-closure/references/lessons-and-benefits.md",
+        "skills/project-closure/references/review-checklist.md",
+        "skills/project-closure/references/template.md",
+        "skills/project-closure/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/project-schedule",
+      "type": "skill",
+      "name": "project-schedule",
+      "description": "Use when a project needs a credible timeline or its estimates challenged — building a milestone plan, activity network, critical path, Gantt or roadmap, sizing effort and duration, setting contingency and buffers, or reviewing a schedule for logic errors, unrealistic estimates, and hidden float. Produces a schedule baseline with stated estimating basis, dependency logic, critical path, and the assumptions the dates depend on.",
+      "path": "skills/project-schedule/SKILL.md",
+      "tags": [
+        "project-management",
+        "schedule",
+        "estimation",
+        "critical-path",
+        "baseline",
+        "artifact"
+      ],
+      "files": [
+        "skills/project-schedule/references/estimating-and-analysis.md",
+        "skills/project-schedule/references/review-checklist.md",
+        "skills/project-schedule/references/template.md",
+        "skills/project-schedule/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
       "id": "skills/project-setup",
       "type": "skill",
       "name": "project-setup",
@@ -600,6 +786,127 @@
         "skills/project-setup/scripts/templates/quality-report.mjs",
         "skills/project-setup/scripts/templates/vitest.config.mjs.tmpl",
         "skills/project-setup/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/raid-log",
+      "type": "skill",
+      "name": "raid-log",
+      "description": "Use when project uncertainty needs capturing or managing — setting up or reviewing a RAID log, risk register, issue log, assumption log, dependency register, or decision log; writing risk statements and response plans; scoring probability and impact; or sizing contingency from risk exposure. Produces entries that are specific enough to act on, with owners, dates, responses, and a review rhythm.",
+      "path": "skills/raid-log/SKILL.md",
+      "tags": [
+        "project-management",
+        "risk",
+        "raid",
+        "issues",
+        "dependencies",
+        "assumptions",
+        "artifact"
+      ],
+      "files": [
+        "skills/raid-log/references/review-checklist.md",
+        "skills/raid-log/references/risk-practice.md",
+        "skills/raid-log/references/template.md",
+        "skills/raid-log/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/scope-and-wbs",
+      "type": "skill",
+      "name": "scope-and-wbs",
+      "description": "Use when project scope needs defining, decomposing, or defending — writing a scope statement, work breakdown structure (WBS) and WBS dictionary, product breakdown, deliverable list, requirements list with acceptance criteria, or a prioritised backlog, and when reviewing scope for gaps, overlaps, or creep. Produces a scope baseline whose parts add up to exactly the work in scope and no more.",
+      "path": "skills/scope-and-wbs/SKILL.md",
+      "tags": [
+        "project-management",
+        "scope",
+        "wbs",
+        "requirements",
+        "baseline",
+        "artifact"
+      ],
+      "files": [
+        "skills/scope-and-wbs/references/review-checklist.md",
+        "skills/scope-and-wbs/references/template.md",
+        "skills/scope-and-wbs/references/wbs-practice.md",
+        "skills/scope-and-wbs/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/stakeholder-plan",
+      "type": "skill",
+      "name": "stakeholder-plan",
+      "description": "Use when working out who matters on a project and how to keep them engaged — building a stakeholder register or map, a power/interest or salience analysis, an engagement plan, a RACI or decision-rights matrix, or a communications plan; and when reviewing engagement for missing stakeholders, unowned relationships, or reporting nobody reads. Produces a stakeholder analysis and a communications plan with named owners, cadence, and messages per audience.",
+      "path": "skills/stakeholder-plan/SKILL.md",
+      "tags": [
+        "project-management",
+        "stakeholders",
+        "communications",
+        "raci",
+        "engagement",
+        "artifact"
+      ],
+      "files": [
+        "skills/stakeholder-plan/references/review-checklist.md",
+        "skills/stakeholder-plan/references/stakeholder-analysis.md",
+        "skills/stakeholder-plan/references/template.md",
+        "skills/stakeholder-plan/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/statement-of-work",
+      "type": "skill",
+      "name": "statement-of-work",
+      "description": "Use when work has to be commissioned from a supplier, contractor, agency, or internal service — drafting or reviewing a statement of work (SOW), scope of work, work order, service description, or the SOW annex to a master services agreement. Produces a contractually usable SOW: deliverables, acceptance criteria, exclusions, assumptions, milestones and payment triggers, roles, change control, and the terms that decide who pays when something goes wrong.",
+      "path": "skills/statement-of-work/SKILL.md",
+      "tags": [
+        "project-management",
+        "statement-of-work",
+        "procurement",
+        "contract",
+        "scope",
+        "artifact"
+      ],
+      "files": [
+        "skills/statement-of-work/references/contract-and-pricing.md",
+        "skills/statement-of-work/references/review-checklist.md",
+        "skills/statement-of-work/references/template.md",
+        "skills/statement-of-work/SKILL.md"
+      ],
+      "author": "Specorator",
+      "license": "MIT",
+      "version": 1
+    },
+    {
+      "id": "skills/status-report",
+      "type": "skill",
+      "name": "status-report",
+      "description": "Use when reporting or reviewing project progress — writing a status or highlight report, stage or end-stage report, checkpoint report, exception report, dashboard, or executive update; setting RAG criteria; computing earned value or flow metrics; or forecasting completion. Produces a short, honest report that states position against baseline, forecast, exceptions, decisions needed, and the top risks — with numbers a reader can check.",
+      "path": "skills/status-report/SKILL.md",
+      "tags": [
+        "project-management",
+        "status-report",
+        "reporting",
+        "earned-value",
+        "forecast",
+        "artifact"
+      ],
+      "files": [
+        "skills/status-report/references/metrics.md",
+        "skills/status-report/references/review-checklist.md",
+        "skills/status-report/references/template.md",
+        "skills/status-report/SKILL.md"
       ],
       "author": "Specorator",
       "license": "MIT",
