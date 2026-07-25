@@ -161,29 +161,42 @@ export function isCatalogId(value) {
  * cycle. Unknown ids are skipped here (the validator reports them separately), so
  * this stays total: a missing dependency must not hide a cycle elsewhere.
  *
- * Mirrors the plugin's `resolvePackage` so a package that validates here resolves
- * to the same order on install.
+ * Mirrors the plugin's `resolvePackage` — an ITERATIVE post-order walk, so a
+ * submission with a long `requires` chain fails validation with a real error
+ * instead of a stack overflow, and a package that validates here resolves to the
+ * same order on install.
  */
 export function resolvePackage(id, graph) {
   const order = [];
   const done = new Set();
-  const onPath = new Set();
-  const visit = (current, path) => {
-    if (done.has(current)) return null;
-    if (onPath.has(current)) return [...path.slice(path.indexOf(current)), current];
-    if (!graph.has(current)) return null; // unknown: reported as a missing dependency
-    onPath.add(current);
-    for (const next of graph.get(current)) {
-      const cycle = visit(next, [...path, current]);
-      if (cycle) return cycle;
+  // The ids currently on the walk: a set for membership, an array (in step with
+  // `stack`) for naming a cycle.
+  const onPath = new Set([id]);
+  const path = [id];
+  const stack = [{ id, next: 0 }];
+
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1];
+    const requires = graph.get(frame.id) ?? [];
+    if (frame.next >= requires.length) {
+      stack.pop();
+      onPath.delete(frame.id);
+      path.pop();
+      done.add(frame.id);
+      order.push(frame.id);
+      continue;
     }
-    onPath.delete(current);
-    done.add(current);
-    order.push(current);
-    return null;
-  };
-  const cycle = visit(id, []);
-  return cycle ? { cycle } : { order };
+    const next = requires[frame.next];
+    frame.next += 1;
+    // Unknown ids are skipped here (the validator reports them separately), so
+    // this stays total: a missing dependency must not hide a cycle elsewhere.
+    if (done.has(next) || !graph.has(next)) continue;
+    if (onPath.has(next)) return { cycle: [...path.slice(path.indexOf(next)), next] };
+    onPath.add(next);
+    path.push(next);
+    stack.push({ id: next, next: 0 });
+  }
+  return { order };
 }
 
 /**

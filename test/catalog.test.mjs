@@ -521,3 +521,28 @@ test('resolvePackage orders dependencies before dependents and reports cycles', 
   const cyclic = new Map([['a/one', ['a/two']], ['a/two', ['a/one']]]);
   assert.deepEqual(resolvePackage('a/one', cyclic).cycle, ['a/one', 'a/two', 'a/one']);
 });
+
+test('resolvePackage handles a chain far deeper than the call stack', () => {
+  // A recursive walk overflows here. Validation must fail a bad submission with a
+  // real error, not a RangeError from the validator itself.
+  const graph = new Map();
+  const N = 20000;
+  for (let i = 0; i < N; i += 1) graph.set(`s/i${i}`, i + 1 < N ? [`s/i${i + 1}`] : []);
+  const { order, cycle } = resolvePackage('s/i0', graph);
+  assert.equal(cycle, undefined);
+  assert.equal(order.length, N);
+  assert.equal(order[0], `s/i${N - 1}`); // deepest dependency emitted first
+  assert.equal(order[order.length - 1], 's/i0');
+});
+
+test('resolvePackage detects a cycle reached through a shared dependency', () => {
+  const graph = new Map([
+    ['a/root', ['a/one', 'a/two']],
+    ['a/one', ['a/shared']],
+    ['a/two', ['a/shared']],
+    ['a/shared', ['a/two']],
+  ]);
+  // Reported from where the loop actually closes: the walk reaches `shared` via
+  // `one`, descends into `two`, and comes back to `shared`.
+  assert.deepEqual(resolvePackage('a/root', graph).cycle, ['a/shared', 'a/two', 'a/shared']);
+});
