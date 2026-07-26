@@ -17,5 +17,8 @@
     "validate:strict": "node scripts/validate-catalog.mjs --strict",
     "test": "node --test",
     "ci": "npm test && npm run validate:strict && npm run check:index"
+  },
+  "devDependencies": {
+    "yaml": "2.9.0"
   }
 }

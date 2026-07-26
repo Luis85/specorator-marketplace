@@ -8,6 +8,11 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+// The one dependency: a spec-compliant YAML 1.2 parser (zero transitive deps).
+// `parseFrontmatter` below stays hand-rolled — it is what builds `index.json`, and
+// keeping it means the catalog can be read without a parser at hand. `validateCatalog`
+// holds the two readers to each other so nothing ships that they read differently.
+import { parse as parseYaml } from 'yaml';
 
 // [folder, singular catalog type, expected frontmatter `type` marker].
 // The folder is authoritative for an item's catalog type; the marker is what a
@@ -64,11 +69,37 @@ export function stripInlineComment(value) {
   return value;
 }
 
+/**
+ * Splits a flow (inline) array's inner text on its TOP-LEVEL commas — a comma
+ * inside a quoted element belongs to that element, and a backslash escape inside
+ * a double-quoted one does not end it. Splitting on every comma tore
+ * `["what, why", other]` into three bogus elements, which is what `index.json`
+ * would then have published.
+ */
+export function splitFlowElements(inner) {
+  const elements = [];
+  let start = 0;
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < inner.length; i += 1) {
+    const c = inner[i];
+    if (inDouble && c === '\\') i += 1; // \" inside a double-quoted scalar
+    else if (c === '"' && !inSingle) inDouble = !inDouble;
+    else if (c === "'" && !inDouble) inSingle = !inSingle;
+    else if (c === ',' && !inSingle && !inDouble) {
+      elements.push(inner.slice(start, i));
+      start = i + 1;
+    }
+  }
+  elements.push(inner.slice(start));
+  return elements;
+}
+
 export function parseScalarOrArray(value) {
   const v = stripInlineComment(value).trim();
   if (v.startsWith('[') && v.endsWith(']')) {
     const inner = v.slice(1, -1).trim();
-    return inner ? inner.split(',').map((s) => unquote(s.trim())) : [];
+    return inner ? splitFlowElements(inner).map((s) => unquote(s.trim())) : [];
   }
   if (v === 'true') return true;
   if (v === 'false') return false;
@@ -89,15 +120,13 @@ const PLAIN_SCALAR_OPENER_RE = /^([&*!|>%@`{}\][,]|[-?](\s|$))/;
 const PLAIN_SCALAR_COLON_RE = /:(\s|$)/;
 
 /**
- * Values this repo's lenient reader accepts but a real YAML parser does not.
+ * Names the frontmatter values a contributor most likely needs to quote.
  *
- * `parseFrontmatter` takes everything after the first `key:` verbatim, so a plain
- * scalar containing `": "` — e.g. `description: Use when … Produces a SOW: deliverables,
- * …` — round-trips fine here and through `index.json`, while every consumer that uses a
- * real YAML parser (the plugin's note parsers, and Claude Code / Codex / Cursor reading
- * an installed `SKILL.md`) fails with "mapping values are not allowed here" and drops
- * the item. Returns one message per offending `key` (empty when the frontmatter is
- * clean); the fix is always to quote the value.
+ * A HINT, not a gate: `validateCatalog` fails an item on what the real YAML parser
+ * says (see `parseFrontmatterStrict` / `findParserDivergence`), then appends this to
+ * turn "Nested mappings are not allowed in compact mappings at line 3, column 282"
+ * into something that names the key and the fix. Being a hint, it can afford to be
+ * incomplete — nothing passes or fails CI on it. One message per offending `key`.
  */
 export function findYamlScalarHazards(rawFrontmatter) {
   const problems = [];
@@ -113,7 +142,7 @@ export function findYamlScalarHazards(rawFrontmatter) {
       // to a real YAML parser (not the string `parseScalarOrArray` produces), and
       // `[a: b: c]` fails to parse at all.
       const inner = v.slice(1, -1).trim();
-      if (inner) inner.split(',').forEach((element, i) => check(`${key}[${i}]`, element, true));
+      if (inner) splitFlowElements(inner).forEach((element, i) => check(`${key}[${i}]`, element, true));
       return;
     }
     if (PLAIN_SCALAR_COLON_RE.test(v)) {
@@ -143,9 +172,69 @@ export function findYamlScalarHazards(rawFrontmatter) {
 }
 
 /**
+ * The frontmatter as a REAL YAML parser reads it — the ground truth, since that is
+ * what every consumer downstream runs: the plugin's note parsers, and Claude Code /
+ * Codex / Cursor loading an installed `SKILL.md`.
+ *
+ * Takes the raw frontmatter block (`parseFrontmatter(...).raw`). Returns
+ * `{ frontmatter }` on a clean parse, or `{ error }` with the parser's own first
+ * line — which already carries the line and column. Duplicate keys are an error
+ * here (they are silently last-wins in the lenient reader), as is frontmatter that
+ * is not a mapping at all.
+ */
+export function parseFrontmatterStrict(raw) {
+  let value;
+  try {
+    value = parseYaml(raw);
+  } catch (cause) {
+    return { error: String(cause?.message ?? cause).split('\n')[0].trim() };
+  }
+  if (value === null || value === undefined) return { frontmatter: {} };
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    return { error: `frontmatter is a YAML ${Array.isArray(value) ? 'sequence' : 'scalar'}, not a mapping` };
+  }
+  return { frontmatter: value };
+}
+
+/**
+ * `null` (a bare `key:`), `''`, and an absent key are the same "empty" to this
+ * catalog — the required-field checks treat all three alike — so they are folded
+ * together before comparing the two readers. Everything else must match exactly.
+ */
+function canonical(value) {
+  if (value === undefined || value === null || value === '') return '';
+  if (Array.isArray(value)) return value.map(canonical);
+  return value;
+}
+
+/**
+ * Where the lenient reader and a real YAML parser disagree about the SAME bytes.
+ *
+ * This is the check that makes `index.json` trustworthy: the manifest is built from
+ * the lenient reader, every consumer uses a real parser, and an item is only safe to
+ * publish when the two agree. `tags: [a: b]` is the shape that motivates it — valid
+ * YAML, but a one-pair mapping there and the string `"a: b"` here, so it would ship a
+ * manifest entry no consumer ever sees. Returns one message per disagreeing key.
+ */
+export function findParserDivergence(lenient, strict) {
+  const problems = [];
+  for (const key of new Set([...Object.keys(lenient), ...Object.keys(strict)])) {
+    const here = JSON.stringify(canonical(lenient[key]));
+    const there = JSON.stringify(canonical(strict[key]));
+    if (here !== there) {
+      problems.push(
+        `\`${key}\` reads as ${here} here but ${there} in a real YAML parser — ` +
+          'quote the value so both agree (index.json is built from the former, every consumer uses the latter)',
+      );
+    }
+  }
+  return problems;
+}
+
+/**
  * Minimal YAML-frontmatter reader for the flat scalar/array shapes this catalog uses.
- * Also returns the `raw` frontmatter text so callers can lint it (see
- * `findYamlScalarHazards`) against what a real YAML parser would accept.
+ * Also returns the `raw` frontmatter text, so `validateCatalog` can hold this reader
+ * to what `parseFrontmatterStrict` makes of the same bytes.
  */
 export function parseFrontmatter(text) {
   const match = text.match(FRONTMATTER_RE);
@@ -468,10 +557,19 @@ export function validateCatalog(root) {
       continue;
     }
 
-    // This repo's reader is lenient; every consumer downstream uses a real YAML
-    // parser. Reject the values only one of the two accepts, before checking what
-    // they contain.
-    for (const problem of findYamlScalarHazards(entry.raw ?? '')) err(problem);
+    // Hold the lenient reader to a real YAML parser over the same bytes, before
+    // checking what the values contain: an item is only publishable if it parses
+    // for real AND both readers agree on what it says. `findYamlScalarHazards` only
+    // decorates the message — it names the key to quote, which the parser's
+    // line/column error does not.
+    const strict = parseFrontmatterStrict(entry.raw ?? '');
+    const hints = findYamlScalarHazards(entry.raw ?? '');
+    const hint = hints.length > 0 ? ` — ${hints[0]}` : '';
+    if (strict.error) {
+      err(`frontmatter is not valid YAML: ${strict.error}${hint}`);
+    } else {
+      for (const problem of findParserDivergence(fm, strict.frontmatter)) err(`${problem}${hint}`);
+    }
 
     const name = nonEmptyString(fm.name);
     if (!name) err('missing required `name`');

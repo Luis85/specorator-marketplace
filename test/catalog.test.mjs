@@ -18,6 +18,9 @@ import {
   listSkillFiles,
   resolvePackage,
   findYamlScalarHazards,
+  parseFrontmatterStrict,
+  findParserDivergence,
+  splitFlowElements,
 } from '../scripts/lib/catalog.mjs';
 
 // --- pure helpers -----------------------------------------------------------
@@ -46,6 +49,19 @@ test('parseScalarOrArray handles quoted scalars, arrays, and trailing comments',
   assert.equal(parseScalarOrArray('1'), 1); // unquoted number → Number
   assert.equal(parseScalarOrArray('"1"'), '1'); // quoted → stays a string
   assert.equal(parseScalarOrArray('true'), true);
+});
+
+test('splitFlowElements splits on top-level commas only (quoted commas belong to their element)', () => {
+  assert.deepEqual(splitFlowElements('a, b'), ['a', ' b']);
+  assert.deepEqual(splitFlowElements('"what, why", other'), ['"what, why"', ' other']);
+  assert.deepEqual(splitFlowElements("'a, b'"), ["'a, b'"]);
+  assert.deepEqual(splitFlowElements('"esc \\" quote, x", y'), ['"esc \\" quote, x"', ' y']);
+  assert.deepEqual(splitFlowElements('a'), ['a']);
+});
+
+test('parseScalarOrArray keeps a quoted comma inside its element', () => {
+  // Splitting on every comma published ["\"what", "why\"", "other"] to index.json.
+  assert.deepEqual(parseScalarOrArray('["what, why", other]'), ['what, why', 'other']);
 });
 
 test('parseFrontmatter reads scalars, inline + block arrays, comments, and body', () => {
@@ -129,6 +145,38 @@ test('findYamlScalarHazards accepts the plain scalars this catalog legitimately 
     ),
     [],
   );
+});
+
+test('parseFrontmatterStrict reports what a real YAML parser makes of the frontmatter', () => {
+  // The shape that shipped broken in skills/statement-of-work.
+  const broken = parseFrontmatterStrict('name: statement-of-work\ndescription: Produces a SOW: deliverables.');
+  assert.match(broken.error, /Nested mappings are not allowed.*line 2, column 14/);
+  assert.equal(broken.frontmatter, undefined);
+  // Malformed quoting — invisible to any heuristic over the raw text.
+  assert.match(parseFrontmatterStrict('description: "unterminated').error, /Missing closing "quote/);
+  assert.match(parseFrontmatterStrict('description: "ok" trailing').error, /Unexpected scalar/);
+  // Quoted: parses, and to the same string the lenient reader yields.
+  const fixed = parseFrontmatterStrict('description: "Produces a SOW: deliverables."');
+  assert.equal(fixed.error, undefined);
+  assert.equal(fixed.frontmatter.description, 'Produces a SOW: deliverables.');
+  // Duplicate keys are silently last-wins in the lenient reader; a real parser refuses.
+  assert.match(parseFrontmatterStrict('name: a\nname: b').error, /keys must be unique/i);
+  // Frontmatter that is not a mapping at all.
+  assert.match(parseFrontmatterStrict('- a\n- b').error, /sequence, not a mapping/);
+  assert.deepEqual(parseFrontmatterStrict('').frontmatter, {});
+});
+
+test('findParserDivergence flags values the two readers disagree about', () => {
+  // Valid YAML both ways, but a one-pair mapping there and a string here.
+  const raw = 'tags: [a: b]';
+  const { frontmatter: lenient } = parseFrontmatter(`---\n${raw}\n---\n`);
+  const { frontmatter: strict } = parseFrontmatterStrict(raw);
+  assert.deepEqual(lenient.tags, ['a: b']);
+  assert.deepEqual(strict.tags, [{ a: 'b' }]);
+  assert.ok(has(findParserDivergence(lenient, strict), /`tags` reads as \["a: b"\] here but \[\{"a":"b"\}\] in a real YAML parser/));
+  // A bare `key:` is '' here and null there — the same "empty" to this catalog.
+  assert.deepEqual(findParserDivergence({ description: '' }, { description: null }), []);
+  assert.deepEqual(findParserDivergence({ version: 1 }, { version: 1 }), []);
 });
 
 test('extractSection reads a section up to the next heading', () => {
@@ -247,7 +295,24 @@ test('validateCatalog rejects an unquoted description containing ": " (parses he
     'description: Ticket to PR: branch, commit, open.',
   );
   const { errors } = validateFixture({ 'loops/ticket-to-pr-ready.md': colonDescription });
+  // The real parser is the gate …
+  assert.ok(has(errors, /frontmatter is not valid YAML: Nested mappings are not allowed/));
+  // … and the hint names the key to quote, which the parser's line/column does not.
   assert.ok(has(errors, /`description` is an unquoted value containing ": "/));
+});
+
+test('validateCatalog rejects frontmatter the lenient reader and a real parser read differently', () => {
+  // Valid YAML, so no parse error — but `[a: b]` is a mapping there and a string
+  // here, which would publish an index.json entry no consumer ever sees.
+  const flowMapping = validLoop.replace('tags: ["x"]', 'tags: [a: b]');
+  const { errors } = validateFixture({ 'loops/ticket-to-pr-ready.md': flowMapping });
+  assert.ok(has(errors, /`tags` reads as .* here but .* in a real YAML parser/));
+});
+
+test('validateCatalog rejects duplicate keys (silently last-wins in the lenient reader)', () => {
+  const duplicated = validLoop.replace('license: MIT', 'license: MIT\nlicense: GPL-3.0');
+  const { errors } = validateFixture({ 'loops/ticket-to-pr-ready.md': duplicated });
+  assert.ok(has(errors, /frontmatter is not valid YAML: .*unique/i));
 });
 
 test('validateCatalog flags a missing license', () => {

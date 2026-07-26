@@ -21,8 +21,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      # No dependencies to install — the scripts use Node built-ins only.
+      # One devDependency: the YAML parser the validator holds the catalog to.
+      - name: Install
+        run: npm ci
+
       - name: Unit tests
         run: npm test
 
