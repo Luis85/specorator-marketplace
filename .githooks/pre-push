@@ -1,0 +1,38 @@
+#!/bin/sh
+# Runs the same gates CI does, before anything leaves the machine.
+#
+# The one that matters most is the YAML gate in `validate:strict`: the catalog's
+# own frontmatter reader is lenient, so an item with an unquoted `description:
+# … Produces a SOW: deliverables` parses fine locally and lands in index.json,
+# then fails for real the moment a consumer with a proper YAML parser loads it.
+# Catching that here costs a few seconds; catching it in CI costs a round trip;
+# missing it entirely ships a broken item.
+#
+# Enabled by `npm install` / `npm ci` (the `prepare` script points
+# core.hooksPath at this folder). Bypass a single push with `--no-verify`.
+set -e
+
+if [ ! -d node_modules/yaml ]; then
+  echo "pre-push: the YAML parser the validator needs is not installed." >&2
+  echo "          run \`npm ci\`, then push again (or \`git push --no-verify\` to skip)." >&2
+  exit 1
+fi
+
+# Quiet when it passes, verbose exactly where it fails: a hook that prints a few
+# thousand lines of TAP on every push is a hook people start bypassing.
+run() {
+  label="$1"
+  shift
+  if ! output=$("$@" 2>&1); then
+    printf '%s\n' "$output" >&2
+    echo >&2
+    echo "pre-push: $label failed — fix it, or push with --no-verify to skip." >&2
+    exit 1
+  fi
+  echo "  ok  $label"
+}
+
+echo "pre-push: verifying the catalog"
+run "unit tests" npm test --silent
+run "validate:strict (per-type contract + YAML gate)" npm run validate:strict --silent
+run "index.json is in sync" npm run check:index --silent

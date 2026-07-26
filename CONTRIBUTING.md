@@ -211,7 +211,15 @@ npm ci                   # once — installs `yaml`, the parser validate holds t
 npm run build:index      # regenerate index.json from the item files
 npm run validate:strict  # per-type contract checks (see rules below)
 npm test                 # unit tests for the parser/validator
+npm run ci               # all three, as CI runs them
 ```
+
+That `npm ci` also installs a **pre-push hook** ([`.githooks/pre-push`](.githooks/pre-push), wired
+up by the `prepare` script pointing `core.hooksPath` at the folder — no hook manager, no extra
+dependency). It runs the three checks above and blocks the push if any fails, so a bad
+`description` is caught on your machine rather than one CI round trip later. It is quiet when
+everything passes, prints only the failing step's output when something doesn't, and
+`git push --no-verify` skips it for a one-off.
 
 Commit the regenerated `index.json` alongside your item, then open the PR. GitHub Actions
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) re-runs the unit tests,
