@@ -224,3 +224,10 @@ required `name`/`description`/`author`/`license`/`tags`, the folder-matching `ty
 `schema_version: 1` (loops + templates), the **filename == `slugify(name)`** round-trip, the loop's
 `Approach`/`Steps`/`Verify` sections, a valid template `priority`, and agent `roles` ⊆
 `{worker, verifier}`.
+
+**Quote any value containing `": "`.** The reader in `scripts/lib/catalog.mjs` is deliberately
+lenient, but every consumer downstream — the plugin's note parsers, and Claude Code / Codex /
+Cursor reading an installed `SKILL.md` — uses a real YAML parser, which reads `description:
+Produces a SOW: deliverables, …` as a nested mapping and rejects the whole frontmatter. Same for a
+value opening on a YAML indicator (`*`, `&`, `{`, `[`, `|`, `>`, `%`, `@`, `` ` ``). `validate`
+errors on both; quoting the value fixes it.

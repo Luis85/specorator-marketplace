@@ -17,6 +17,7 @@ import {
   validateCatalog,
   listSkillFiles,
   resolvePackage,
+  findYamlScalarHazards,
 } from '../scripts/lib/catalog.mjs';
 
 // --- pure helpers -----------------------------------------------------------
@@ -71,6 +72,43 @@ test('parseFrontmatter reads scalars, inline + block arrays, comments, and body'
   assert.deepEqual(frontmatter.tags, ['review', 'verifier']); // block sequence
   assert.equal(frontmatter.version, 1); // unquoted number coerced to Number
   assert.match(body, /Body prompt line\./);
+});
+
+test('findYamlScalarHazards flags plain scalars a real YAML parser would reject', () => {
+  // The shape that shipped broken: a description whose second sentence starts
+  // "Produces a SOW: deliverables, …". Lenient here, fatal in a real YAML parser.
+  const colon = findYamlScalarHazards('description: Use when … Produces a SOW: deliverables, terms.');
+  assert.equal(colon.length, 1);
+  assert.match(colon[0], /`description` is an unquoted value containing ": "/);
+  // Same value, quoted → fine.
+  assert.deepEqual(findYamlScalarHazards('description: "Produces a SOW: deliverables."'), []);
+  // A block-sequence entry is checked too.
+  assert.ok(has(findYamlScalarHazards(['requires:', '  - a: b'].join('\n')), /`requires`/));
+  // A plain scalar opening on a YAML indicator is not the string it looks like.
+  assert.ok(has(findYamlScalarHazards('icon: *alias'), /starting with the YAML indicator "\*"/));
+});
+
+test('findYamlScalarHazards accepts the plain scalars this catalog legitimately uses', () => {
+  assert.deepEqual(
+    findYamlScalarHazards(
+      [
+        '# a leading comment',
+        'name: project-charter',
+        'description: Use when … — writing a charter (PID), or reviewing one.',
+        'source: https://example.com/a:b',       // `:` not followed by a space
+        'priority: 1 - high',
+        'tags: ["a", "b"]',
+        'color: "var(--color-blue)"',
+        'roles:',
+        '  - worker',
+        '  - verifier',
+        'version: 1',
+        'requires:   # a package',
+        '  - skills/raid-log',
+      ].join('\n'),
+    ),
+    [],
+  );
 });
 
 test('extractSection reads a section up to the next heading', () => {
@@ -181,6 +219,15 @@ test('collectItems + buildManifest build a manifest over a fixture catalog', () 
 test('validateCatalog flags a filename that does not match slugify(name)', () => {
   const { errors } = validateFixture({ 'loops/wrong-name.md': validLoop });
   assert.ok(has(errors, /must match slugify\(name\)/));
+});
+
+test('validateCatalog rejects an unquoted description containing ": " (parses here, fails in a real YAML parser)', () => {
+  const colonDescription = validLoop.replace(
+    'description: "d"',
+    'description: Ticket to PR: branch, commit, open.',
+  );
+  const { errors } = validateFixture({ 'loops/ticket-to-pr-ready.md': colonDescription });
+  assert.ok(has(errors, /`description` is an unquoted value containing ": "/));
 });
 
 test('validateCatalog flags a missing license', () => {

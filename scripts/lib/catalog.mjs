@@ -79,10 +79,67 @@ export function parseScalarOrArray(value) {
   return unquote(v);
 }
 
-/** Minimal YAML-frontmatter reader for the flat scalar/array shapes this catalog uses. */
+/**
+ * YAML indicator characters that cannot open a *plain* (unquoted) scalar. A value
+ * starting with one is either a different YAML node (alias, tag, flow collection,
+ * block scalar) or an outright parse error — never the string it looks like here.
+ */
+const PLAIN_SCALAR_OPENER_RE = /^[&*!|>%@`{}\][,]/;
+/** `: ` (or a trailing `:`) inside a plain scalar — YAML reads it as a nested mapping. */
+const PLAIN_SCALAR_COLON_RE = /:(\s|$)/;
+
+/**
+ * Values this repo's lenient reader accepts but a real YAML parser does not.
+ *
+ * `parseFrontmatter` takes everything after the first `key:` verbatim, so a plain
+ * scalar containing `": "` — e.g. `description: Use when … Produces a SOW: deliverables,
+ * …` — round-trips fine here and through `index.json`, while every consumer that uses a
+ * real YAML parser (the plugin's note parsers, and Claude Code / Codex / Cursor reading
+ * an installed `SKILL.md`) fails with "mapping values are not allowed here" and drops
+ * the item. Returns one message per offending `key` (empty when the frontmatter is
+ * clean); the fix is always to quote the value.
+ */
+export function findYamlScalarHazards(rawFrontmatter) {
+  const problems = [];
+  const check = (key, rawValue) => {
+    const v = stripInlineComment(rawValue).trim();
+    if (!v) return;
+    if (v !== unquote(v)) return; // quoted — the parser is told where the scalar ends
+    if (v.startsWith('[') && v.endsWith(']')) return; // inline (flow) array
+    if (PLAIN_SCALAR_COLON_RE.test(v)) {
+      problems.push(`\`${key}\` is an unquoted value containing ": " — quote it (a real YAML parser reads it as a nested mapping and rejects the frontmatter)`);
+    } else if (PLAIN_SCALAR_OPENER_RE.test(v)) {
+      problems.push(`\`${key}\` is an unquoted value starting with the YAML indicator "${v[0]}" — quote it`);
+    }
+  };
+
+  const lines = rawFrontmatter.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!line.trim() || line.trimStart().startsWith('#')) continue;
+    const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!m) continue;
+    const [, key, rawValue] = m;
+    if (stripInlineComment(rawValue).trim() === '') {
+      while (i + 1 < lines.length && /^\s*-\s+/.test(lines[i + 1])) {
+        i += 1;
+        check(key, lines[i].replace(/^\s*-\s+/, ''));
+      }
+      continue;
+    }
+    check(key, rawValue);
+  }
+  return problems;
+}
+
+/**
+ * Minimal YAML-frontmatter reader for the flat scalar/array shapes this catalog uses.
+ * Also returns the `raw` frontmatter text so callers can lint it (see
+ * `findYamlScalarHazards`) against what a real YAML parser would accept.
+ */
 export function parseFrontmatter(text) {
   const match = text.match(FRONTMATTER_RE);
-  if (!match) return { frontmatter: {}, body: text };
+  if (!match) return { frontmatter: {}, body: text, raw: '' };
   const lines = match[1].split(/\r?\n/);
   const frontmatter = {};
   for (let i = 0; i < lines.length; i += 1) {
@@ -103,7 +160,7 @@ export function parseFrontmatter(text) {
     }
     frontmatter[key] = parseScalarOrArray(rawValue);
   }
-  return { frontmatter, body: match[2] };
+  return { frontmatter, body: match[2], raw: match[1] };
 }
 
 /** Reads a `## Heading` section body, stopping at the next `##`. Mirrors the plugin's reader. */
@@ -258,10 +315,10 @@ export function readCatalogFiles(root) {
         } catch {
           continue; // a directory without SKILL.md is not a skill
         }
-        const { frontmatter, body } = parseFrontmatter(content);
+        const { frontmatter, body, raw } = parseFrontmatter(content);
         entries.push({
           folder, type, typeMarker, file: 'SKILL.md', slug: dirent.name,
-          path: `${folder}/${dirent.name}/SKILL.md`, frontmatter, body,
+          path: `${folder}/${dirent.name}/SKILL.md`, frontmatter, body, raw,
           files: listSkillFiles(root, `${folder}/${dirent.name}`),
         });
       }
@@ -270,10 +327,10 @@ export function readCatalogFiles(root) {
 
     for (const dirent of dirents) {
       if (!dirent.isFile() || !dirent.name.endsWith('.md') || dirent.name === 'README.md') continue;
-      const { frontmatter, body } = parseFrontmatter(readFileSync(join(root, folder, dirent.name), 'utf8'));
+      const { frontmatter, body, raw } = parseFrontmatter(readFileSync(join(root, folder, dirent.name), 'utf8'));
       entries.push({
         folder, type, typeMarker, file: dirent.name, slug: dirent.name.replace(/\.md$/i, ''),
-        path: `${folder}/${dirent.name}`, frontmatter, body,
+        path: `${folder}/${dirent.name}`, frontmatter, body, raw,
       });
     }
   }
@@ -400,6 +457,11 @@ export function validateCatalog(root) {
       err('missing or unparseable YAML frontmatter');
       continue;
     }
+
+    // This repo's reader is lenient; every consumer downstream uses a real YAML
+    // parser. Reject the values only one of the two accepts, before checking what
+    // they contain.
+    for (const problem of findYamlScalarHazards(entry.raw ?? '')) err(problem);
 
     const name = nonEmptyString(fm.name);
     if (!name) err('missing required `name`');
