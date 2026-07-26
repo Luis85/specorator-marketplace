@@ -11,11 +11,15 @@
     "node": ">=20"
   },
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "build:index": "node scripts/build-index.mjs",
     "check:index": "node scripts/build-index.mjs --check",
     "validate": "node scripts/validate-catalog.mjs",
     "validate:strict": "node scripts/validate-catalog.mjs --strict",
     "test": "node --test",
     "ci": "npm test && npm run validate:strict && npm run check:index"
+  },
+  "devDependencies": {
+    "yaml": "2.9.0"
   }
 }

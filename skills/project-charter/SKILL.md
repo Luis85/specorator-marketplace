@@ -1,6 +1,6 @@
 ---
 name: project-charter
-description: Use when a project needs to be formally authorised and its ground rules fixed — writing or updating a project charter, project initiation documentation (PID), project handbook, or team charter, or reviewing one before a delivery gate. Produces the authorising document: objectives, success criteria, scope boundary, deliverables, milestones, budget, governance and decision rights, tolerances, roles, and the management approaches the project will follow.
+description: "Use when a project needs to be formally authorised and its ground rules fixed — writing or updating a project charter, project initiation documentation (PID), project handbook, or team charter, or reviewing one before a delivery gate. Produces the authorising document: objectives, success criteria, scope boundary, deliverables, milestones, budget, governance and decision rights, tolerances, roles, and the management approaches the project will follow."
 author: Specorator
 license: MIT
 tags: ["project-management", "project-charter", "pid", "governance", "initiation", "artifact"]

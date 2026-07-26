@@ -1,6 +1,6 @@
 ---
 name: statement-of-work
-description: Use when work has to be commissioned from a supplier, contractor, agency, or internal service — drafting or reviewing a statement of work (SOW), scope of work, work order, service description, or the SOW annex to a master services agreement. Produces a contractually usable SOW: deliverables, acceptance criteria, exclusions, assumptions, milestones and payment triggers, roles, change control, and the terms that decide who pays when something goes wrong.
+description: "Use when work has to be commissioned from a supplier, contractor, agency, or internal service — drafting or reviewing a statement of work (SOW), scope of work, work order, service description, or the SOW annex to a master services agreement. Produces a contractually usable SOW: deliverables, acceptance criteria, exclusions, assumptions, milestones and payment triggers, roles, change control, and the terms that decide who pays when something goes wrong."
 author: Specorator
 license: MIT
 tags: ["project-management", "statement-of-work", "procurement", "contract", "scope", "artifact"]

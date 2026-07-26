@@ -204,13 +204,22 @@ a recommendation: everything listed lands in the user's vault.
 
 ## Before you open a PR
 
-Run the same checks CI enforces (no dependencies — Node ≥ 20 built-ins only):
+Run the same checks CI enforces (Node ≥ 20; one devDependency, the YAML parser):
 
 ```bash
+npm ci                   # once — installs `yaml`, the parser validate holds the catalog to
 npm run build:index      # regenerate index.json from the item files
 npm run validate:strict  # per-type contract checks (see rules below)
 npm test                 # unit tests for the parser/validator
+npm run ci               # all three, as CI runs them
 ```
+
+That `npm ci` also installs a **pre-push hook** ([`.githooks/pre-push`](.githooks/pre-push), wired
+up by the `prepare` script pointing `core.hooksPath` at the folder — no hook manager, no extra
+dependency). It runs the three checks above and blocks the push if any fails, so a bad
+`description` is caught on your machine rather than one CI round trip later. It is quiet when
+everything passes, prints only the failing step's output when something doesn't, and
+`git push --no-verify` skips it for a one-off.
 
 Commit the regenerated `index.json` alongside your item, then open the PR. GitHub Actions
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) re-runs the unit tests,
@@ -219,8 +228,31 @@ Commit the regenerated `index.json` alongside your item, then open the PR. GitHu
 `npm run validate` reports two levels: **errors** always fail; **warnings** fail only under
 `--strict` (which CI uses). Warnings cover soft conventions — a quick action carrying personal
 `favorite` state, a loop with no `## Use when`, an agent missing `icon`/`color`/`initials`, or a
-`source` that isn't an `https://` URL. Errors cover the hard contract: parseable frontmatter,
+`source` that isn't an `https://` URL. Errors cover the hard contract: frontmatter that parses as
+real YAML and means the same thing to both readers (see [below](#two-readers-held-to-each-other)),
 required `name`/`description`/`author`/`license`/`tags`, the folder-matching `type` marker,
 `schema_version: 1` (loops + templates), the **filename == `slugify(name)`** round-trip, the loop's
 `Approach`/`Steps`/`Verify` sections, a valid template `priority`, and agent `roles` ⊆
 `{worker, verifier}`.
+
+### Two readers, held to each other
+
+`index.json` is built by the small hand-rolled frontmatter reader in
+[`scripts/lib/catalog.mjs`](scripts/lib/catalog.mjs), which is deliberately lenient. Every
+consumer downstream — the plugin's note parsers, and Claude Code / Codex / Cursor loading an
+installed `SKILL.md` — uses a real YAML parser instead. An item is only publishable when **both**
+read it, and read it the same way, so `validate` parses every item a second time with the
+[`yaml`](https://www.npmjs.com/package/yaml) library and errors on:
+
+- **frontmatter a real parser rejects** — the common cause is an unquoted value containing `": "`
+  (`description: … Produces a SOW: deliverables, …` is read as a nested mapping), but it also
+  covers unterminated quotes, trailing content after a quoted scalar, duplicate keys, a value
+  opening on a YAML indicator (`*`, `&`, `{`, `[`, `|`, `>`, `%`, `@`, `` ` ``, `- `, `? `), and
+  frontmatter that isn't a mapping;
+- **frontmatter the two readers disagree about** — valid YAML that would still publish a manifest
+  entry no consumer ever sees. `tags: [a: b]` is the example: a one-pair mapping to a real parser,
+  the string `"a: b"` to the lenient one.
+
+Quoting the value fixes almost every case, and the error names the key to quote. This is a hard
+gate, not a heuristic — new frontmatter shapes are covered automatically because the check is a
+real parser rather than a pattern list.
