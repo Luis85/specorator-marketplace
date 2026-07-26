@@ -86,6 +86,26 @@ test('findYamlScalarHazards flags plain scalars a real YAML parser would reject'
   assert.ok(has(findYamlScalarHazards(['requires:', '  - a: b'].join('\n')), /`requires`/));
   // A plain scalar opening on a YAML indicator is not the string it looks like.
   assert.ok(has(findYamlScalarHazards('icon: *alias'), /starting with the YAML indicator "\*"/));
+  // `- ` and `? ` open a sequence entry / complex key: "sequence entries are not
+  // allowed here" and "mapping keys are not allowed here" from a real parser.
+  assert.ok(has(findYamlScalarHazards('description: - draft'), /YAML indicator "-"/));
+  assert.ok(has(findYamlScalarHazards('description: ? draft'), /YAML indicator "\?"/));
+  // …only as indicators, though: no whitespace after means an ordinary string.
+  assert.deepEqual(findYamlScalarHazards('description: -draft'), []);
+  assert.deepEqual(findYamlScalarHazards('priority: 1 - high'), []);
+});
+
+test('findYamlScalarHazards checks inline-array elements, not just the outer brackets', () => {
+  // `[a: b]` is a list of one MAPPING to a real YAML parser, while this repo's
+  // reader yields the string "a: b" — matching brackets prove nothing.
+  assert.ok(has(findYamlScalarHazards('tags: [a: b]'), /`tags\[0\]`.*containing ": "/));
+  // `[a: b: c]` does not parse at all ("while parsing a flow sequence").
+  assert.ok(has(findYamlScalarHazards('tags: [a: b: c]'), /`tags\[0\]`/));
+  // Only the offending element is named.
+  assert.deepEqual(findYamlScalarHazards('tags: ["ok", "also: ok", plain]'), []);
+  assert.equal(findYamlScalarHazards('tags: ["ok", bad: element]').length, 1);
+  // An unterminated flow array is still caught by the opener rule.
+  assert.ok(has(findYamlScalarHazards('tags: [a, b'), /YAML indicator "\["/));
 });
 
 test('findYamlScalarHazards accepts the plain scalars this catalog legitimately uses', () => {

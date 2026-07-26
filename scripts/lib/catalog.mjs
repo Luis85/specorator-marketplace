@@ -84,7 +84,7 @@ export function parseScalarOrArray(value) {
  * starting with one is either a different YAML node (alias, tag, flow collection,
  * block scalar) or an outright parse error — never the string it looks like here.
  */
-const PLAIN_SCALAR_OPENER_RE = /^[&*!|>%@`{}\][,]/;
+const PLAIN_SCALAR_OPENER_RE = /^([&*!|>%@`{}\][,]|[-?](\s|$))/;
 /** `: ` (or a trailing `:`) inside a plain scalar — YAML reads it as a nested mapping. */
 const PLAIN_SCALAR_COLON_RE = /:(\s|$)/;
 
@@ -101,13 +101,23 @@ const PLAIN_SCALAR_COLON_RE = /:(\s|$)/;
  */
 export function findYamlScalarHazards(rawFrontmatter) {
   const problems = [];
-  const check = (key, rawValue) => {
+  // `flow` marks an element already inside an inline array, so a nested `[…]`
+  // there is reported as the unsupported shape it is instead of recursing.
+  const check = (key, rawValue, flow = false) => {
     const v = stripInlineComment(rawValue).trim();
     if (!v) return;
     if (v !== unquote(v)) return; // quoted — the parser is told where the scalar ends
-    if (v.startsWith('[') && v.endsWith(']')) return; // inline (flow) array
+    if (!flow && v.startsWith('[') && v.endsWith(']')) {
+      // An inline (flow) array. Matching outer brackets say nothing about the
+      // elements, so check each one the same way: `[a: b]` is a one-pair MAPPING
+      // to a real YAML parser (not the string `parseScalarOrArray` produces), and
+      // `[a: b: c]` fails to parse at all.
+      const inner = v.slice(1, -1).trim();
+      if (inner) inner.split(',').forEach((element, i) => check(`${key}[${i}]`, element, true));
+      return;
+    }
     if (PLAIN_SCALAR_COLON_RE.test(v)) {
-      problems.push(`\`${key}\` is an unquoted value containing ": " — quote it (a real YAML parser reads it as a nested mapping and rejects the frontmatter)`);
+      problems.push(`\`${key}\` is an unquoted value containing ": " — quote it (a real YAML parser reads the colon as a mapping, not as part of the string)`);
     } else if (PLAIN_SCALAR_OPENER_RE.test(v)) {
       problems.push(`\`${key}\` is an unquoted value starting with the YAML indicator "${v[0]}" — quote it`);
     }
